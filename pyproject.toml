@@ -1,0 +1,61 @@
+[project]
+name = "image-splitter"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = ["PyQt6", "Send2Trash"]
+
+
+[tool.ruff.lint]
+select = [
+    "ANN",
+    "ARG",
+    "B",
+    "B",
+    "C4",
+    "C901",
+    "COM",
+    "D",
+    "E",
+    "ERA",
+    "F",
+    "F",
+    "FIX",
+    "I",
+    "ISC",
+    "N",
+    "NPY",
+    "PERF",
+    "PGH",
+    "PIE",
+    "PTH",
+    "Q",
+    "RUF",
+    "S",
+    "SIM",
+    "UP",
+    "W",
+    "W",
+    "YTT",
+]
+
+[tool.ruff]
+target-version = "py314"
+ignore = [
+    "ANN401", # any-type type hint
+    "N802",   # snake_case method names
+    "S311",   # cryptography warning
+    "RUF015", # next vs [0]
+    "UP037",  # Allow quotes for classmethods
+    "D102",
+    "D103",
+]
+line-length = 100
+fixable = ["D400"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "numpy"
+
+[tool.ruff.lint.pep8-naming]
+ignore-names = ["*"]
