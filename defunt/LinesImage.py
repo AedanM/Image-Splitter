@@ -13,7 +13,8 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from src.Components import Line, LineSplitter, Rectangle
+from LineSplitter import LineSplitter
+from src.Components import Line, Rectangle
 
 
 class ImageWidget(QWidget):

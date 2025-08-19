@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from PyQt6.QtCore import QPoint, QSize, Qt
+from PyQt6.QtCore import QPoint, QRect, QSize, Qt
 from PyQt6.QtGui import (
     QColor,
     QDragEnterEvent,
@@ -15,9 +15,7 @@ from PyQt6.QtGui import (
     QResizeEvent,
     QWheelEvent,
 )
-from PyQt6.QtWidgets import (
-    QWidget,
-)
+from PyQt6.QtWidgets import QWidget
 
 from .Components import Polygon
 
@@ -36,15 +34,18 @@ AVAILABLE_COLORS = [
 class ImageWidget(QWidget):
     """Base image widget."""
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        image_path: Path | None = None,
+        polygons: list[Polygon] | None = None,
+    ) -> None:
         super().__init__()
         self.setAcceptDrops(True)
         self.pixmap: QPixmap = None
         self.scaled_pixmap: QPixmap = None
-        self.image_path: Path | None = None
+        self.image_path: Path | None = image_path
         self.image_loaded: bool = False
         self.available_colors: list[QColor] = list(AVAILABLE_COLORS)
-
         self.offset: QPoint = QPoint()
         self.baseScale: float = 1.0
         self.zoom: float = 1.0
@@ -52,7 +53,29 @@ class ImageWidget(QWidget):
         self.panPoint: QPoint = QPoint()
         self.previewLines: bool = True
 
-        self.saveBounds: list[Polygon] = []
+        self.saveBounds: list[Polygon] = [] if polygons is None else polygons
+        if isinstance(image_path, Path):
+            self.LoadImage(str(self.image_path))
+
+    def ScaleToImage(self, display_point: QPoint) -> QPoint:
+        inv = 1 / (self.baseScale * self.zoom)
+        x = max(int((display_point.x() - self.offset.x()) * inv), 0)
+        y = max(int((display_point.y() - self.offset.y()) * inv), 0)
+        return QPoint(x, y)
+
+    def ScaleToDisplay(self, display_point: QPoint) -> QPoint:
+        scale = self.baseScale * self.zoom
+        x = int(display_point.x() * scale) + self.offset.x()
+        y = int(display_point.y() * scale) + self.offset.y()
+        return QPoint(x, y)
+
+    def ScaleRectToDisplay(self, img_rect: QRect) -> QRect:
+        scale = self.baseScale * self.zoom
+        x = int(img_rect.x() * scale) + self.offset.x()
+        y = int(img_rect.y() * scale) + self.offset.y()
+        w = int(img_rect.width() * scale)
+        h = int(img_rect.height() * scale)
+        return QRect(x, y, w, h)
 
     def dragEnterEvent(self, event: QDragEnterEvent) -> None:
         if event.mimeData().hasUrls():
@@ -79,10 +102,13 @@ class ImageWidget(QWidget):
         self.zoom = 1.0
         self.offset = QPoint()
         self.image_loaded = True
-        self.saveBounds.append(Polygon.FromRect(self.pixmap.rect(), AVAILABLE_COLORS[2]))
 
         self.UpdateScaling()
         self.update()
+
+    def RemoveLast(self) -> None:
+        if self.saveBounds:
+            self.saveBounds.pop()
 
     def resizeEvent(self, event: QResizeEvent) -> None:
         super().resizeEvent(event)
@@ -163,6 +189,7 @@ class ImageWidget(QWidget):
         self.zoom = 1.0
         self.baseScale = 1.0
         self.offset = QPoint()
+        self.saveBounds = []
         self.UpdateScaling()
         self.update()
 
@@ -179,14 +206,10 @@ class ImageWidget(QWidget):
             if createSubdir
             else self.image_path.parent
         )
+        dst.mkdir(exist_ok=True)
         # Save each rectangle as a separate image
-        print(f"Saving {len(self.saveBounds)} crops...")
         for idx, poly in enumerate(self.saveBounds, start=1):
             rect = poly.bounding_rect
-            print(
-                f"Box {idx}: ({rect.x()}, {rect.y()}, {rect.width()},{rect.height()})",
-            )
-
             if rect.width() > 0 and rect.height() > 0:
                 cropped = qImage.copy(rect)
                 output_path = dst / f"{self.image_path.stem} {idx:03d}.png"
