@@ -226,7 +226,6 @@ class ImageWidget(QWidget):
                 cropped = qImage.copy(rect)
                 output_path = dst / f"{self.image_path.stem} {idx:03d}.png"
                 cropped.save(str(output_path))
-                print(f"Saved box {idx} to: {output_path}")
 
     def AddGrid(self, _vert: int, _horz: int) -> None:
         raise NotImplementedError
