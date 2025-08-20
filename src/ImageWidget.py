@@ -20,9 +20,9 @@ from PyQt6.QtWidgets import QWidget
 from .Components import Polygon
 
 AVAILABLE_COLORS = [
-    QColor("red"),
+    # reserve for bounds QColor("red"),
     QColor("green"),
-    QColor("blue"),
+    # reserve for grid QColor("blue"),
     QColor("yellow"),
     QColor("magenta"),
     QColor("cyan"),
@@ -57,6 +57,21 @@ class ImageWidget(QWidget):
         if isinstance(image_path, Path):
             self.LoadImage(str(self.image_path))
 
+    # region ScalingControls
+    def UpdateScaling(self) -> None:
+        if not self.pixmap:
+            return
+        w, h = self.width(), self.height()
+        fit_scale: int = min(w / self.pixmap.width(), h / self.pixmap.height())
+        self.baseScale = fit_scale
+
+        scale: float = self.baseScale * self.zoom
+
+        sw, sh = int(self.pixmap.width() * scale), int(self.pixmap.height() * scale)
+        self.scaled_pixmap = self.pixmap.scaled(sw, sh, Qt.AspectRatioMode.KeepAspectRatio)
+        if not self.panning:
+            self.offset = QPoint((w - sw) // 2, (h - sh) // 2)
+
     def ScaleToImage(self, display_point: QPoint) -> QPoint:
         inv = 1 / (self.baseScale * self.zoom)
         x = max(int((display_point.x() - self.offset.x()) * inv), 0)
@@ -77,16 +92,7 @@ class ImageWidget(QWidget):
         h = int(img_rect.height() * scale)
         return QRect(x, y, w, h)
 
-    def dragEnterEvent(self, event: QDragEnterEvent) -> None:
-        if event.mimeData().hasUrls():
-            event.acceptProposedAction()
-        else:
-            event.ignore()
-
-    def dropEvent(self, event: QDropEvent) -> None:
-        urls = event.mimeData().urls()
-        if urls:
-            self.LoadImage(urls[0].toLocalFile())
+    # endregion
 
     def LoadImage(self, path: str) -> None:
         file = Path(path)
@@ -110,26 +116,6 @@ class ImageWidget(QWidget):
         if self.saveBounds:
             self.saveBounds.pop()
 
-    def resizeEvent(self, event: QResizeEvent) -> None:
-        super().resizeEvent(event)
-        if self.pixmap:
-            self.UpdateScaling()
-            self.update()
-
-    def UpdateScaling(self) -> None:
-        if not self.pixmap:
-            return
-        w, h = self.width(), self.height()
-        fit_scale: int = min(w / self.pixmap.width(), h / self.pixmap.height())
-        self.baseScale = fit_scale
-
-        scale: float = self.baseScale * self.zoom
-
-        sw, sh = int(self.pixmap.width() * scale), int(self.pixmap.height() * scale)
-        self.scaled_pixmap = self.pixmap.scaled(sw, sh, Qt.AspectRatioMode.KeepAspectRatio)
-        if not self.panning:
-            self.offset = QPoint((w - sw) // 2, (h - sh) // 2)
-
     def ClampPoint(self, point: QPoint) -> QPoint:
         # Clamp point to image display bounds
         if self.scaled_pixmap is None:
@@ -145,6 +131,8 @@ class ImageWidget(QWidget):
         )
         return QPoint(x, y)
 
+    # region EventHandlers
+    # region MouseEvents
     def mousePressEvent(self, event: QMouseEvent) -> None:
         if event.button() == Qt.MouseButton.MiddleButton:
             self.panning = True
@@ -173,12 +161,32 @@ class ImageWidget(QWidget):
         self.offset = old_pos - new_rel
         self.update()
 
+    # endregion
     def paintEvent(self, _event: QPaintEvent) -> None:
         painter = QPainter(self)
         painter.fillRect(self.rect(), QColor(45, 45, 45))
 
         if self.scaled_pixmap:
             painter.drawPixmap(self.offset, self.scaled_pixmap)
+
+    def resizeEvent(self, event: QResizeEvent) -> None:
+        super().resizeEvent(event)
+        if self.pixmap:
+            self.UpdateScaling()
+            self.update()
+
+    def dragEnterEvent(self, event: QDragEnterEvent) -> None:
+        if event.mimeData().hasUrls():
+            event.acceptProposedAction()
+        else:
+            event.ignore()
+
+    def dropEvent(self, event: QDropEvent) -> None:
+        urls = event.mimeData().urls()
+        if urls:
+            self.LoadImage(urls[0].toLocalFile())
+
+    # endregion
 
     def sizeHint(self) -> QSize:
         if self.scaled_pixmap:
@@ -192,6 +200,10 @@ class ImageWidget(QWidget):
         self.saveBounds = []
         self.UpdateScaling()
         self.update()
+
+    def update(self) -> None:
+        self.saveBounds = list(set(self.saveBounds))
+        super().update()
 
     def SaveSections(self, createSubdir: bool) -> None:
         if self.image_path is None or not self.image_path.exists():
@@ -215,3 +227,6 @@ class ImageWidget(QWidget):
                 output_path = dst / f"{self.image_path.stem} {idx:03d}.png"
                 cropped.save(str(output_path))
                 print(f"Saved box {idx} to: {output_path}")
+
+    def AddGrid(self, _vert: int, _horz: int) -> None:
+        raise NotImplementedError

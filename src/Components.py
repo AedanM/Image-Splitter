@@ -4,29 +4,6 @@ from PyQt6.QtCore import QPoint, QRect
 from PyQt6.QtGui import QColor
 
 
-class Line:
-    """."""
-
-    def __init__(self, start: QPoint, end: QPoint, color: QColor) -> None:
-        self.start = start
-        self.end = end
-        self.color = color
-
-    def get_points(self) -> tuple[QPoint, QPoint]:
-        return (self.start, self.end)
-
-
-class Rectangle:
-    """."""
-
-    def __init__(self, rect: QRect, color: QColor) -> None:
-        self.rect = rect
-        self.color = color
-
-    def get_bounding_rect(self) -> QRect:
-        return self.rect
-
-
 class Polygon:
     """."""
 
@@ -60,17 +37,15 @@ class Polygon:
 
         return QRect(min_x, min_y, max_x - min_x, max_y - min_y)
 
-    @classmethod
-    def FromLines(cls, lines: list[Line], color: QColor) -> "Polygon | None":
-        if len(lines) < 2:
-            return None
-        points = set()
-        for line in lines:
-            points.add(line.start)
-            points.add(line.end)
-        return cls(list(points), color)
-
     def BindTo(self, width: int, height: int) -> None:
         for p in self.Points:
             p.setX(max(min(p.x(), width), 0))
             p.setY(max(min(p.y(), height), 0))
+
+    def __str__(self) -> str:
+        """Use color and points for str."""
+        return f"{self.Color.value()} [{','.join([f'({x.x()},{x.y()})' for x in self.Points])}]"
+
+    def __repr__(self) -> str:
+        """Repr is just string."""
+        return str(self)
