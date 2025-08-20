@@ -7,12 +7,24 @@ from PyQt6.QtGui import QColor
 class Polygon:
     """."""
 
-    Points: list[QPoint]
+    _Points: list[QPoint]
     Color: QColor
 
     def __init__(self, points: list[QPoint], color: QColor) -> None:
-        self.Points = points
+        self._Points = points
         self.Color = color
+
+    @property
+    def Points(self) -> list[QPoint]:
+        return self._Points
+
+    @Points.setter
+    def Points(self, points: list[QPoint]) -> None:
+        self._Points = sorted(points, key=lambda x: x.x() * 1000 + x.y())
+
+    @property
+    def RawPoints(self) -> list[tuple[int, int]]:
+        return [(x.x(), x.y()) for x in self.Points]
 
     @classmethod
     def FromRect(cls, bbox: QRect, color: QColor) -> "Polygon":

@@ -6,6 +6,7 @@ from PyQt6.QtGui import QImageReader
 from PyQt6.QtWidgets import (
     QApplication,
     QCheckBox,
+    QFrame,
     QHBoxLayout,
     QLabel,
     QPushButton,
@@ -16,6 +17,7 @@ from PyQt6.QtWidgets import (
 from send2trash import send2trash
 
 from src.BoxesWidget import BoxWidget
+from src.Components import Polygon
 from src.LinesWidget import LineWidget
 
 QImageReader.setAllocationLimit(0)
@@ -29,6 +31,7 @@ class MainWindow(QWidget):
         self.setWindowTitle("Image Splitter")
         self.setStyleSheet(
             """
+            QFrame {max-width: 250px}
             QSpinBox {max-width: 50px }
             QWidget { background-color: #2b2b2b; color: #f0f0f0; }
             QCheckBox, QPushButton, QLabel {background-color: #3c3f41; border: none; padding: 5px;}
@@ -54,6 +57,7 @@ class MainWindow(QWidget):
         self.resetBtn = QPushButton("Reset")
 
         # Checkboxes
+        self.polygonViewCheck = QCheckBox("View Polygons")
         self.subfolderCheck = QCheckBox("Save to subfolder")
         self.subfolderCheck.setChecked(True)
         self.previewLinesCheck = QCheckBox("Preview Lines")
@@ -73,6 +77,7 @@ class MainWindow(QWidget):
         self.deleteImgBtn.clicked.connect(self.deleteIMG)
         self.resetBtn.clicked.connect(self.reset)
         self.previewLinesCheck.toggled.connect(self.ToggleLinePreview)
+        self.polygonViewCheck.toggled.connect(self.LoadPolygonView)
         self.addGridBtn.clicked.connect(self.AddGrid)
 
         # Layout setup
@@ -90,13 +95,14 @@ class MainWindow(QWidget):
         top_layout.addWidget(self.gridHeight)
 
         # Middle row: Image widget
-        self.middle_layout = QVBoxLayout()
+        self.middle_layout = QHBoxLayout()
         self.middle_layout.addWidget(self.imageViewer)
 
         # Bottom row: Controls
         bottom_layout = QHBoxLayout()
         bottom_layout.addWidget(self.subfolderCheck)
         bottom_layout.addWidget(self.previewLinesCheck)
+        bottom_layout.addWidget(self.polygonViewCheck)
         bottom_layout.addStretch()
         for btn in (
             self.deleteLastBtn,
@@ -141,14 +147,46 @@ class MainWindow(QWidget):
                 self.imageViewer.saveBounds,
             )
         self.middle_layout.addWidget(self.imageViewer)
-
         self.imageViewer.update()
         self.update()
         self.reset()
+        self.LoadPolygonView()
 
     def removeLast(self) -> None:
         iw = self.imageViewer
         iw.RemoveLast()
+        self.update()
+
+    def LoadPolygonView(self) -> None:
+        item = self.middle_layout.itemAt(0).widget()
+        if isinstance(item, QFrame):
+            item.deleteLater()
+        if self.polygonViewCheck.isChecked() and self.imageViewer.saveBounds:
+            polygonViewer = QFrame()
+            layout = QVBoxLayout()
+            for idx, polygon in enumerate(self.imageViewer.saveBounds):
+                p_frame = QFrame()
+                p_layout = QHBoxLayout()
+                deleteBtn = QPushButton("❌")
+
+                points = "</p><p>".join([f"({x.x():03d},{x.y():03d})" for x in polygon.Points])
+
+                p_layout.addWidget(QLabel(f'<font color="{polygon.Color.name()}">#{idx}</font'))
+                p_layout.addWidget(QLabel(f"<p>{points}</p>"))
+                p_layout.addWidget(deleteBtn)
+                p_layout.addStretch()
+
+                def DeletePoly(element: Polygon) -> None:
+                    self.imageViewer.RemovePolygon(element)
+                    self.LoadPolygonView()
+
+                deleteBtn.clicked.connect(lambda _self, p=polygon: DeletePoly(p))
+                p_frame.setLayout(p_layout)
+                layout.addWidget(p_frame)
+
+            polygonViewer.setLayout(layout)
+            polygonViewer.setMaximumWidth(250)
+            self.middle_layout.insertWidget(0, polygonViewer)
         self.update()
 
     def deleteIMG(self) -> None:
@@ -162,6 +200,7 @@ class MainWindow(QWidget):
         self.imageViewer.reset()
         self.gridWidth.setValue(1)
         self.gridHeight.setValue(1)
+        self.polygonViewCheck.setChecked(False)
         self.ToggleLinePreview(self.previewLinesCheck.isChecked())
 
     def ToggleLinePreview(self, checked: bool) -> None:

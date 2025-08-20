@@ -94,43 +94,6 @@ class ImageWidget(QWidget):
 
     # endregion
 
-    def LoadImage(self, path: str) -> None:
-        file = Path(path)
-        if not file.is_file():
-            return
-        self.pixmap = None
-        self.image_path = file
-        self.pixmap = QPixmap(str(file))
-        if self.pixmap.width() * self.pixmap.height() == 0:
-            return
-
-        self.available_colors = list(AVAILABLE_COLORS)
-        self.zoom = 1.0
-        self.offset = QPoint()
-        self.image_loaded = True
-
-        self.UpdateScaling()
-        self.update()
-
-    def RemoveLast(self) -> None:
-        if self.saveBounds:
-            self.saveBounds.pop()
-
-    def ClampPoint(self, point: QPoint) -> QPoint:
-        # Clamp point to image display bounds
-        if self.scaled_pixmap is None:
-            return QPoint(0, 0)
-
-        x = min(
-            max(point.x(), self.offset.x()),
-            self.offset.x() + self.scaled_pixmap.width(),
-        )
-        y = min(
-            max(point.y(), self.offset.y()),
-            self.offset.y() + self.scaled_pixmap.height(),
-        )
-        return QPoint(x, y)
-
     # region EventHandlers
     # region MouseEvents
     def mousePressEvent(self, event: QMouseEvent) -> None:
@@ -188,6 +151,7 @@ class ImageWidget(QWidget):
 
     # endregion
 
+    # region Utility
     def sizeHint(self) -> QSize:
         if self.scaled_pixmap:
             return self.scaled_pixmap.size()
@@ -202,8 +166,43 @@ class ImageWidget(QWidget):
         self.update()
 
     def update(self) -> None:
-        self.saveBounds = list(set(self.saveBounds))
+        self.saveBounds = sorted(set(self.saveBounds), key=lambda x: x.RawPoints)
         super().update()
+
+    def ClampPoint(self, point: QPoint) -> QPoint:
+        # Clamp point to image display bounds
+        if self.scaled_pixmap is None:
+            return QPoint(0, 0)
+
+        x = min(
+            max(point.x(), self.offset.x()),
+            self.offset.x() + self.scaled_pixmap.width(),
+        )
+        y = min(
+            max(point.y(), self.offset.y()),
+            self.offset.y() + self.scaled_pixmap.height(),
+        )
+        return QPoint(x, y)
+
+    # endregion
+
+    def LoadImage(self, path: str) -> None:
+        file = Path(path)
+        if not file.is_file():
+            return
+        self.pixmap = None
+        self.image_path = file
+        self.pixmap = QPixmap(str(file))
+        if self.pixmap.width() * self.pixmap.height() == 0:
+            return
+
+        self.available_colors = list(AVAILABLE_COLORS)
+        self.zoom = 1.0
+        self.offset = QPoint()
+        self.image_loaded = True
+
+        self.UpdateScaling()
+        self.update()
 
     def SaveSections(self, createSubdir: bool) -> None:
         if self.image_path is None or not self.image_path.exists():
@@ -229,3 +228,12 @@ class ImageWidget(QWidget):
 
     def AddGrid(self, _vert: int, _horz: int) -> None:
         raise NotImplementedError
+
+    def RemoveLast(self) -> None:
+        if self.saveBounds:
+            self.saveBounds.pop()
+
+    def RemovePolygon(self, poly: Polygon) -> None:
+        if poly in self.saveBounds:
+            self.saveBounds.remove(poly)
+        self.update()
