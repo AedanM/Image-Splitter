@@ -239,10 +239,8 @@ class ImageWidget(QWidget):
             return
         qImage = QImage(str(self.image_path))
         if qImage.isNull():
-            print(f"Failed to load image: {self.image_path}")
             return
         if self.saveBounds == []:
-            print("No polygons")
             return
 
         dst: Path = (

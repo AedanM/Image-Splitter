@@ -91,7 +91,6 @@ def DetermineBoundary(
         top += 1
 
     while bottom > top:
-        print(bottom)
         if any(not MatchTuple(pixels[x, bottom], pixels[left, bottom]) for x in range(left, right)):
             break
         bottom -= 1

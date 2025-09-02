@@ -81,9 +81,7 @@ class Polygon:
                 corners = self.bounding_points
                 if corners is None or None in corners:
                     return
-                print(self.Points)
                 self.Points = DetermineBoundary(
                     im.load(),
                     corners,  # pyright: ignore[reportArgumentType]
                 )
-                print(self.Points)

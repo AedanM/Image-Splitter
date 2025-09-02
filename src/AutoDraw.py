@@ -74,7 +74,6 @@ def SliceImage(p: Path, useLines: bool = False) -> list[Polygon]:
     rows, cols = GetSolidGrid(img)
     rows = GetBlocks(rows, height)
     cols = GetBlocks(cols, width)
-    print(rows, cols)
     if useLines:
         out = (
             [

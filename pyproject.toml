@@ -4,7 +4,16 @@ version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
-dependencies = ["PyQt6", "Send2Trash", "Pillow", "numpy", "winshell", "pywin32"]
+dependencies = [
+    "PyQt6",
+    "Send2Trash",
+    "Pillow",
+    "numpy",
+    "winshell",
+    "pywin32",
+    "pyinstaller",
+    "cx_Freeze",
+]
 
 
 [tool.ruff.lint]
@@ -60,3 +69,11 @@ convention = "numpy"
 
 [tool.ruff.lint.pep8-naming]
 ignore-names = ["*"]
+
+[tool.cxfreeze]
+executables = [
+    { script = "main.py", icon = "assets/splash", target_name = "image-splitter" },
+]
+[tool.cxfreeze.build_exe]
+build_exe = "dist"
+optimize = 2

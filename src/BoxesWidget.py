@@ -128,8 +128,9 @@ class BoxWidget(ImageWidget):
         return region.boundingRect() == img_rect
 
     def Trim(self) -> None:
-        for poly in self.saveBounds:
-            poly.Trim(self.image_path)
+        if self.image_path is not None:
+            for poly in self.saveBounds:
+                poly.Trim(self.image_path)
         self.update()
 
     def AutoDraw(self) -> None:
