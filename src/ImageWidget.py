@@ -41,9 +41,10 @@ class ImageWidget(QWidget):
     ) -> None:
         super().__init__()
         self.setAcceptDrops(True)
-        self.pixmap: QPixmap = None
-        self.scaled_pixmap: QPixmap = None
+        self.pixmap: QPixmap = QPixmap()
+        self.scaled_pixmap: QPixmap = QPixmap()
         self.image_path: Path | None = image_path
+        self.last_path: Path | None = None
         self.image_loaded: bool = False
         self.available_colors: list[QColor] = list(AVAILABLE_COLORS)
         self.offset: QPoint = QPoint()
@@ -59,10 +60,10 @@ class ImageWidget(QWidget):
 
     # region ScalingControls
     def UpdateScaling(self) -> None:
-        if not self.pixmap:
+        if self.pixmap.width() == 0 or self.pixmap.height() == 0:
             return
         w, h = self.width(), self.height()
-        fit_scale: int = min(w / self.pixmap.width(), h / self.pixmap.height())
+        fit_scale: float = min(w / self.pixmap.width(), h / self.pixmap.height())
         self.baseScale = fit_scale
 
         scale: float = self.baseScale * self.zoom
@@ -96,12 +97,12 @@ class ImageWidget(QWidget):
 
     # region EventHandlers
     # region MouseEvents
-    def mousePressEvent(self, event: QMouseEvent) -> None:
+    def mousePressEvent(self, event: QMouseEvent) -> None:  # type: ignore[reportIncompatibleMethodOverride]
         if event.button() == Qt.MouseButton.MiddleButton:
             self.panning = True
             self.panPoint = event.position().toPoint()
 
-    def mouseMoveEvent(self, event: QMouseEvent) -> None:
+    def mouseMoveEvent(self, event: QMouseEvent) -> None:  # type: ignore[reportIncompatibleMethodOverride]
         pos = event.position().toPoint()
         if self.panning:
             delta = pos - self.panPoint
@@ -109,11 +110,11 @@ class ImageWidget(QWidget):
             self.panPoint = pos
             self.update()
 
-    def mouseReleaseEvent(self, event: QMouseEvent) -> None:
+    def mouseReleaseEvent(self, event: QMouseEvent) -> None:  # type: ignore[reportIncompatibleMethodOverride]
         if self.panning and event.button() == Qt.MouseButton.MiddleButton:
             self.panning = False
 
-    def wheelEvent(self, event: QWheelEvent) -> None:
+    def wheelEvent(self, event: QWheelEvent) -> None:  # type: ignore[reportIncompatibleMethodOverride]
         delta = event.angleDelta().y()
         factor = 1.25 if delta > 0 else 0.8
         old_pos = event.position().toPoint()
@@ -125,27 +126,30 @@ class ImageWidget(QWidget):
         self.update()
 
     # endregion
-    def paintEvent(self, _event: QPaintEvent) -> None:
+    def paintEvent(self, _event: QPaintEvent) -> None:  # type: ignore[reportIncompatibleMethodOverride]
         painter = QPainter(self)
         painter.fillRect(self.rect(), QColor(45, 45, 45))
 
         if self.scaled_pixmap:
             painter.drawPixmap(self.offset, self.scaled_pixmap)
 
-    def resizeEvent(self, event: QResizeEvent) -> None:
+    def resizeEvent(self, event: QResizeEvent) -> None:  # type: ignore[reportIncompatibleMethodOverride]
         super().resizeEvent(event)
         if self.pixmap:
             self.UpdateScaling()
             self.update()
 
-    def dragEnterEvent(self, event: QDragEnterEvent) -> None:
-        if event.mimeData().hasUrls():
-            event.acceptProposedAction()
-        else:
-            event.ignore()
+    def dragEnterEvent(self, event: QDragEnterEvent) -> None:  # type: ignore[reportIncompatibleMethodOverride]
+        if mimeData := event.mimeData():
+            if mimeData.hasUrls():
+                event.acceptProposedAction()
+            else:
+                event.ignore()
 
-    def dropEvent(self, event: QDropEvent) -> None:
-        urls = event.mimeData().urls()
+    def dropEvent(self, event: QDropEvent) -> None:  # type: ignore[reportIncompatibleMethodOverride]
+        urls: list = []
+        if mimeData := event.mimeData():
+            urls = mimeData.urls()
         if urls:
             self.LoadImage(urls[0].toLocalFile())
 
@@ -165,7 +169,7 @@ class ImageWidget(QWidget):
         self.UpdateScaling()
         self.update()
 
-    def update(self) -> None:
+    def update(self) -> None:  # type: ignore[reportIncompatibleMethodOverride]
         self.saveBounds = sorted(set(self.saveBounds), key=lambda x: x.RawPoints)
         super().update()
 
@@ -186,11 +190,12 @@ class ImageWidget(QWidget):
 
     # endregion
 
-    def LoadImage(self, path: str) -> None:
+    def LoadImage(self, path: str | Path) -> None:
         file = Path(path)
         if not file.is_file():
             return
-        self.pixmap = None
+        if self.image_path != path and self.image_path is not None:
+            self.last_path = self.image_path
         self.image_path = file
         self.pixmap = QPixmap(str(file))
         if self.pixmap.width() * self.pixmap.height() == 0:
@@ -200,7 +205,15 @@ class ImageWidget(QWidget):
         self.zoom = 1.0
         self.offset = QPoint()
         self.image_loaded = True
+        if (
+            self.parent() is not None
+            and hasattr(self.parent(), "imageLabel")
+            and self.image_path is not None
+        ):
+            files = self.GetImageFiles()
+            idx = files.index(self.image_path) + 1
 
+            self.parent().imageLabel.setText(f"{self.image_path.name} ({idx}/{len(files)})")  # type: ignore[reportOptionalMemberAccess]
         self.UpdateScaling()
         self.update()
 
@@ -210,6 +223,9 @@ class ImageWidget(QWidget):
         qImage = QImage(str(self.image_path))
         if qImage.isNull():
             print(f"Failed to load image: {self.image_path}")
+            return
+        if self.saveBounds == []:
+            print("No polygons")
             return
 
         dst: Path = (
@@ -237,3 +253,36 @@ class ImageWidget(QWidget):
         if poly in self.saveBounds:
             self.saveBounds.remove(poly)
         self.update()
+
+    def GetImageFiles(self) -> list[Path]:
+        ALLOWED_EXTS = [".png", ".jpg", ".jpeg", ".bmp", ".tiff", ".webp"]
+        if self.image_path is None or not self.image_path.parent.exists():
+            return []
+        files = sorted(
+            [f for f in self.image_path.parent.glob("*") if f.suffix.lower() in ALLOWED_EXTS]
+        )
+        return files
+
+    def LoadNext(self, p: Path | None, reverse: bool = False) -> None:
+        if p is None:
+            return
+        files = self.GetImageFiles()
+        idx = -10
+        if p.exists():
+            idx = files.index(p)
+        elif p.parent.exists():
+            position = [x for x in files if x > p]
+            idx = files.index(position[0]) - 1 if position else -1
+        if idx >= -1:
+            if idx + 1 < len(files) and reverse is False:
+                self.LoadImage(str(files[idx + 1]))
+            elif idx - 1 >= 0 and reverse is True:
+                self.LoadImage(str(files[idx - 1]))
+            elif idx + 1 >= len(files):
+                self.LoadImage(str(files[0]))
+            elif idx - 1 < 0:
+                self.LoadImage(str(files[len(files) - 1]))
+
+    @property
+    def isFullyCovered(self) -> bool:
+        return False

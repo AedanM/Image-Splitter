@@ -25,7 +25,7 @@ class LineWidget(ImageWidget):
         self.drawing_line = False
         self.line_start_point = QPoint()
         self.line_current_end_point = QPoint()
-        self.current_line_color = None
+        self.currentColor :QColor = QColor("blue")
 
     # region EventHandlers
     # region MouseEvents
@@ -62,7 +62,7 @@ class LineWidget(ImageWidget):
 
             # Draw current line being drawn
             if self.drawing_line:
-                painter.setPen(QPen(self.current_line_color, 2))
+                painter.setPen(QPen(self.currentColor, 2))
                 painter.drawLine(self.line_start_point, self.line_current_end_point)
 
             if self.previewLines and self.saveBounds:
@@ -79,8 +79,8 @@ class LineWidget(ImageWidget):
         # Pick a random unused color
         if not self.available_colors:
             self.available_colors = list(AVAILABLE_COLORS)
-        self.current_line_color = random.choice(self.available_colors)
-        self.available_colors.remove(self.current_line_color)
+        self.currentColor = random.choice(self.available_colors)
+        self.available_colors.remove(self.currentColor)
         self.update()
 
     def FinishLine(self) -> None:
@@ -92,7 +92,7 @@ class LineWidget(ImageWidget):
             start = self.ScaleToImage(self.line_start_point)
             end = self.ScaleToImage(self.line_current_end_point)
             # Create line in image coordinates
-            line = Polygon([start, end], self.current_line_color)
+            line = Polygon([start, end], self.currentColor)
             self.saveBounds.append(line)
 
         self.update()

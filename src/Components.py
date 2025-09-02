@@ -1,5 +1,6 @@
 """Components and utilities."""
 
+from PIL import Image
 from PyQt6.QtCore import QPoint, QRect
 from PyQt6.QtGui import QColor
 
@@ -20,7 +21,7 @@ class Polygon:
 
     @Points.setter
     def Points(self, points: list[QPoint]) -> None:
-        self._Points = sorted(points, key=lambda x: x.x() * 1000 + x.y())
+        self._Points = sorted(points, key=lambda x: (x.y(), x.x()))
 
     @property
     def RawPoints(self) -> list[tuple[int, int]]:
@@ -61,3 +62,12 @@ class Polygon:
     def __repr__(self) -> str:
         """Repr is just string."""
         return str(self)
+
+    def Trim(self, image: Image.Image):
+        if len(self.Points) != 4:
+            return
+        for p in self.Points:
+            match_Horizontal = [x for x in self.Points if x.y() == p.y() and x != p]
+            match_Vertical = [x for x in self.Points if x.x() == p.x() and x != p]
+            if match_Horizontal:
+                testCol = p.y()

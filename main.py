@@ -1,14 +1,20 @@
 """Main module for image splitter."""
 
 import sys
+from pathlib import Path
+from pprint import pp
 
-from PyQt6.QtGui import QImageReader
+import winshell
+from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QImageReader, QKeyEvent
 from PyQt6.QtWidgets import (
     QApplication,
     QCheckBox,
     QFrame,
     QHBoxLayout,
+    QInputDialog,
     QLabel,
+    QMessageBox,
     QPushButton,
     QSpinBox,
     QVBoxLayout,
@@ -40,8 +46,8 @@ class MainWindow(QWidget):
         """,
         )
 
-        self.imageViewer = LineWidget()
-
+        self.imageViewer = BoxWidget()
+        self.imageLabel = QLabel("")
         # Mode toggle button
         self.modeToggle = QPushButton("Switch to Box Mode")
         self.modeToggle.setStyleSheet("background-color: #4CAF50; font-weight: bold;")
@@ -55,11 +61,13 @@ class MainWindow(QWidget):
         self.deleteLastBtn = QPushButton("Delete Last")
         self.deleteImgBtn = QPushButton("Delete IMG")
         self.resetBtn = QPushButton("Reset")
+        self.nextBtn = QPushButton("Next Image")
 
         # Checkboxes
         self.polygonViewCheck = QCheckBox("View Polygons")
+        self.loadNextCheck = QCheckBox("Load Next")
+        self.loadNextCheck.setChecked(True)
         self.subfolderCheck = QCheckBox("Save to subfolder")
-        self.subfolderCheck.setChecked(True)
         self.previewLinesCheck = QCheckBox("Preview Lines")
         self.previewLinesCheck.setChecked(True)
         self.addGridBtn = QPushButton("Add Grid")
@@ -79,10 +87,16 @@ class MainWindow(QWidget):
         self.previewLinesCheck.toggled.connect(self.ToggleLinePreview)
         self.polygonViewCheck.toggled.connect(self.LoadPolygonView)
         self.addGridBtn.clicked.connect(self.AddGrid)
+        self.nextBtn.clicked.connect(lambda: self.imageViewer.LoadNext(self.imageViewer.image_path))
 
         # Layout setup
         self.SetupLayout()
         self.resize(1200, 800)
+
+        if sys.argv and len(sys.argv) > 1:
+            imgPath = Path(sys.argv[1])
+            if imgPath.is_file():
+                self.imageViewer.LoadImage(imgPath)
 
     def SetupLayout(self) -> None:
         # Top row: Mode controls
@@ -90,6 +104,9 @@ class MainWindow(QWidget):
         top_layout.addWidget(self.modeLabel)
         top_layout.addWidget(self.modeToggle)
         top_layout.addStretch()
+        top_layout.addWidget(self.imageLabel)
+        top_layout.addStretch()
+        top_layout.addWidget(self.deleteLastBtn)
         top_layout.addWidget(self.addGridBtn)
         top_layout.addWidget(self.gridWidth)
         top_layout.addWidget(self.gridHeight)
@@ -103,10 +120,11 @@ class MainWindow(QWidget):
         bottom_layout.addWidget(self.subfolderCheck)
         bottom_layout.addWidget(self.previewLinesCheck)
         bottom_layout.addWidget(self.polygonViewCheck)
+        bottom_layout.addWidget(self.loadNextCheck)
         bottom_layout.addStretch()
         for btn in (
-            self.deleteLastBtn,
             self.resetBtn,
+            self.nextBtn,
             self.deleteImgBtn,
             self.saveBtn,
         ):
@@ -118,6 +136,51 @@ class MainWindow(QWidget):
         main_layout.addLayout(self.middle_layout)
         main_layout.addLayout(bottom_layout)
         self.setLayout(main_layout)
+
+    def keyPressEvent(self, a0: QKeyEvent | None) -> None:
+        if a0 is None:
+            return
+        match a0.key():
+            case Qt.Key.Key_W:
+                self.deleteIMG()
+            case Qt.Key.Key_E:
+                self.imageViewer.LoadNext(self.imageViewer.image_path)
+            case Qt.Key.Key_Q:
+                self.imageViewer.LoadNext(self.imageViewer.image_path, reverse=True)
+            case Qt.Key.Key_Escape:
+                self.reset()
+            case Qt.Key.Key_Return | Qt.Key.Key_Enter:
+                self.Save()
+            case Qt.Key.Key_U:
+                files = sorted(winshell.recycle_bin(), key=lambda x: x.recycle_date())
+                file = files[-1].original_filename()
+                pp(files)
+                dlg = QMessageBox(self)
+                dlg.setWindowTitle("File Restored")
+                dlg.setText(f"Restore {Path(file).name}?")
+                dlg.setStandardButtons(
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                )
+                btn = dlg.exec()
+                if btn == QMessageBox.StandardButton.Yes:
+                    winshell.undelete(file)
+                    self.imageViewer.LoadImage(file)
+            case Qt.Key.Key_F2:
+                if self.imageViewer.image_path:
+                    text, ok = QInputDialog.getText(
+                        self,
+                        "Enter New Name",
+                        self.imageViewer.image_path.name,
+                        text=self.imageViewer.image_path.stem,
+                    )
+
+                    if ok and text:
+                        dst = (
+                            self.imageViewer.image_path.parent
+                            / f"{text}{self.imageViewer.image_path.suffix}"
+                        )
+                        self.imageViewer.image_path.rename(dst)
+                        self.imageViewer.LoadNext(self.imageViewer.image_path)
 
     def ToggleMode(self) -> None:
         """Toggle between line and box modes."""
@@ -191,9 +254,14 @@ class MainWindow(QWidget):
 
     def deleteIMG(self) -> None:
         im = self.imageViewer.image_path
+        if im is None:
+            return
+        self.imageViewer.reset()
+        if self.loadNextCheck.isChecked():
+            self.imageViewer.LoadNext(im)
+
         if im and im.exists():
             send2trash(im)
-        self.imageViewer.reset()
         self.update()
 
     def reset(self) -> None:
@@ -210,6 +278,8 @@ class MainWindow(QWidget):
 
     def Save(self) -> None:
         self.imageViewer.SaveSections(self.subfolderCheck.isChecked())
+        if self.imageViewer.isFullyCovered:
+            self.deleteIMG()
 
     def AddGrid(self) -> None:
         self.imageViewer.AddGrid(self.gridWidth.value(), self.gridHeight.value())

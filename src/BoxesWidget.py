@@ -4,7 +4,7 @@ import random
 from pathlib import Path
 
 from PyQt6.QtCore import QPoint, QRect, QSize, Qt
-from PyQt6.QtGui import QColor, QMouseEvent, QPainter, QPaintEvent, QPen
+from PyQt6.QtGui import QColor, QMouseEvent, QPainter, QPaintEvent, QPen, QRegion
 
 from src.Components import Polygon
 from src.ImageWidget import AVAILABLE_COLORS, ImageWidget
@@ -24,7 +24,7 @@ class BoxWidget(ImageWidget):
         self.drawing_box = False
         self.box_start_point = QPoint()
         self.currentRect = QRect()
-        self.currentColor = None
+        self.currentColor: QColor = QColor("blue")
 
     def mousePressEvent(self, event: QMouseEvent) -> None:
         if event.button() == Qt.MouseButton.LeftButton:
@@ -103,3 +103,22 @@ class BoxWidget(ImageWidget):
                 )
 
             self.update()
+
+    @property
+    def isFullyCovered(self) -> bool:
+        """Return True if the saved rectangular polygons cover the entire image."""
+        if (
+            not self.pixmap
+            or self.pixmap.width() == 0
+            or self.pixmap.height() == 0
+            or not self.saveBounds
+        ):
+            return False
+
+        img_rect = QRect(0, 0, self.pixmap.width(), self.pixmap.height())
+        region = QRegion()
+        for poly in self.saveBounds:
+            rect = getattr(poly, "bounding_rect", None)
+            if rect and rect.isValid():
+                region = region.united(QRegion(rect))
+        return region.boundingRect() == img_rect

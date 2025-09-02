@@ -19,28 +19,28 @@ def SolveIntersections(image_size: QSize, line: Polygon) -> list[tuple]:
 
     # Top boundary (y = 0)
     if abs(dy) > 1e-10:
-        t_top: int = -y1 / dy
+        t_top: int = round(-y1 / dy)
         x_top: int = x1 + t_top * dx
         if 0 <= x_top <= image_size.width():
             intersections.append((x_top, 0, t_top))
 
     # Bottom boundary (y = image_size.height())
     if abs(dy) > 1e-10:
-        t_bottom: int = (image_size.height() - y1) / dy
+        t_bottom: int = round((image_size.height() - y1) / dy)
         x_bottom: int = x1 + t_bottom * dx
         if 0 <= x_bottom <= image_size.width():
             intersections.append((x_bottom, image_size.height(), t_bottom))
 
     # Left boundary (x = 0)
     if abs(dx) > 1e-10:
-        t_left: int = -x1 / dx
+        t_left: int = round(-x1 / dx)
         y_left: int = y1 + t_left * dy
         if 0 <= y_left <= image_size.height():
             intersections.append((0, y_left, t_left))
 
     # Right boundary (x = image_size.width())
     if abs(dx) > 1e-10:
-        t_right: int = (image_size.width() - x1) / dx
+        t_right: int = round((image_size.width() - x1) / dx)
         y_right: int = y1 + t_right * dy
         if 0 <= y_right <= image_size.height():
             intersections.append((image_size.width(), y_right, t_right))
