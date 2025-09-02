@@ -6,6 +6,7 @@ from pathlib import Path
 from PyQt6.QtCore import QPoint, QSize, Qt
 from PyQt6.QtGui import QColor, QMouseEvent, QPainter, QPaintEvent, QPen
 
+from src.AutoDraw import SliceImage
 from src.Components import Polygon
 from src.ImageWidget import AVAILABLE_COLORS, ImageWidget
 from src.LineCalcs import ExtendLines
@@ -25,7 +26,7 @@ class LineWidget(ImageWidget):
         self.drawing_line = False
         self.line_start_point = QPoint()
         self.line_current_end_point = QPoint()
-        self.currentColor :QColor = QColor("blue")
+        self.currentColor: QColor = QColor("blue")
 
     # region EventHandlers
     # region MouseEvents
@@ -99,8 +100,8 @@ class LineWidget(ImageWidget):
 
     # endregion
 
-    def LoadImage(self, path: str) -> None:
-        super().LoadImage(path)
+    def LoadImage(self, path: str | Path, keepPolygons: bool = False) -> None:
+        super().LoadImage(path, keepPolygons)
         if not self.pixmap:
             return
 
@@ -173,4 +174,9 @@ class LineWidget(ImageWidget):
                 ),
             )
             offset += vertSpacing
+        self.update()
+
+    def AutoDraw(self) -> None:
+        if self.image_path:
+            self.saveBounds.extend(SliceImage(self.image_path, True))
         self.update()

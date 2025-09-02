@@ -1,6 +1,7 @@
 import random
 from pathlib import Path
 
+from LineSplitter import LineSplitter
 from PyQt6.QtCore import QPoint, QSize
 from PyQt6.QtGui import QColor, QImage, QImageReader, QRect
 from PyQt6.QtWidgets import (
@@ -13,7 +14,6 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from LineSplitter import LineSplitter
 from src.Components import Line, Rectangle
 
 
@@ -126,11 +126,11 @@ class ImageWidget(QWidget):
         # Clamp point to image display bounds
         x = min(
             max(point.x(), self.offset.x()),
-            self.offset.x() + self.scaled_pixmap.width(),  # type: ignore[reportOptionalMemberAccess]
+            self.offset.x() + self.scaled_pixmap.width(),  # pyright: ignore[reportOptionalMemberAccess]
         )
         y = min(
             max(point.y(), self.offset.y()),
-            self.offset.y() + self.scaled_pixmap.height(),  # type: ignore[reportOptionalMemberAccess]
+            self.offset.y() + self.scaled_pixmap.height(),  # pyright: ignore[reportOptionalMemberAccess]
         )
         return QPoint(x, y)
 

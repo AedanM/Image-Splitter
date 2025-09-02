@@ -1,8 +1,13 @@
 """Calculations with lines."""
 
+from typing import Any
+
 from PyQt6.QtCore import QPoint, QSize
 
 from src.Components import Polygon
+
+TOLERANCE = 10
+PADDING = 3
 
 
 def SolveIntersections(image_size: QSize, line: Polygon) -> list[tuple]:
@@ -62,3 +67,47 @@ def ExtendLines(line: Polygon, image_size: QSize) -> Polygon | None:
         [QPoint(int(start_x), int(start_y)), QPoint(int(end_x), int(end_y))],
         line.Color,
     )
+
+
+def MatchTuple(pixel: tuple, reference: tuple) -> bool:
+    return all(abs(pixel[i] - reference[0]) <= TOLERANCE for i in range(len(reference)))
+
+
+def DetermineBoundary(
+    pixels: Any,
+    corners: tuple[int, int, int, int],
+) -> list[QPoint]:
+    s_left, s_top, s_right, s_bottom = corners
+    left, top, right, bottom = corners
+
+    s_right -= 1
+    s_bottom -= 1
+    right -= 1
+    bottom -= 1
+
+    while top < bottom:
+        if any(not MatchTuple(pixels[x, top], pixels[left, top]) for x in range(left, right)):
+            break
+        top += 1
+
+    while bottom > top:
+        print(bottom)
+        if any(not MatchTuple(pixels[x, bottom], pixels[left, bottom]) for x in range(left, right)):
+            break
+        bottom -= 1
+
+    while left < right:
+        if any(not MatchTuple(pixels[left, y], pixels[left, top]) for y in range(top, bottom)):
+            break
+        left += 1
+
+    while right > left:
+        if any(not MatchTuple(pixels[right, y], pixels[right, top]) for y in range(top, bottom)):
+            break
+        right -= 1
+
+    top = max(top - PADDING, s_top)
+    bottom = min(bottom + PADDING, s_bottom)
+    left = max(left - PADDING, s_left)
+    right = min(right + PADDING, s_right)
+    return [QPoint(left, top), QPoint(right + 1, bottom + 1)]

@@ -1,5 +1,7 @@
 """Components and utilities."""
 
+from pathlib import Path
+
 from PIL import Image
 from PyQt6.QtCore import QPoint, QRect
 from PyQt6.QtGui import QColor
@@ -39,16 +41,23 @@ class Polygon:
         return poly
 
     @property
-    def bounding_rect(self) -> QRect:
+    def bounding_points(self) -> tuple[int, int, int, int] | None:
         if not self.Points:
-            return QRect()
+            return None
 
         min_x = min(p.x() for p in self.Points)
         min_y = min(p.y() for p in self.Points)
         max_x = max(p.x() for p in self.Points)
         max_y = max(p.y() for p in self.Points)
 
-        return QRect(min_x, min_y, max_x - min_x, max_y - min_y)
+        return (min_x, min_y, max_x, max_y)
+
+    @property
+    def bounding_rect(self) -> QRect:
+        points = self.bounding_points
+        if points is None:
+            return QRect()
+        return QRect(points[0], points[1], points[2] - points[0], points[3] - points[1])
 
     def BindTo(self, width: int, height: int) -> None:
         for p in self.Points:
@@ -63,11 +72,18 @@ class Polygon:
         """Repr is just string."""
         return str(self)
 
-    def Trim(self, image: Image.Image):
-        if len(self.Points) != 4:
-            return
-        for p in self.Points:
-            match_Horizontal = [x for x in self.Points if x.y() == p.y() and x != p]
-            match_Vertical = [x for x in self.Points if x.x() == p.x() and x != p]
-            if match_Horizontal:
-                testCol = p.y()
+    def Trim(self, image: Image.Image | Path | str) -> None:
+        from .LineCalcs import DetermineBoundary
+
+        im: Image.Image = Image.open(image) if not isinstance(image, Image.Image) else image
+        match len(self.Points):
+            case 2:
+                corners = self.bounding_points
+                if corners is None or None in corners:
+                    return
+                print(self.Points)
+                self.Points = DetermineBoundary(
+                    im.load(),
+                    corners,  # pyright: ignore[reportArgumentType]
+                )
+                print(self.Points)

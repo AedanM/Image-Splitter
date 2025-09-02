@@ -15,9 +15,10 @@ from PyQt6.QtGui import (
     QResizeEvent,
     QWheelEvent,
 )
-from PyQt6.QtWidgets import QWidget
+from PyQt6.QtWidgets import QInputDialog, QWidget
 
 from .Components import Polygon
+from .Utility import GetImageFiles, ThrowNotImplemented
 
 AVAILABLE_COLORS = [
     # reserve for bounds QColor("red"),
@@ -97,12 +98,12 @@ class ImageWidget(QWidget):
 
     # region EventHandlers
     # region MouseEvents
-    def mousePressEvent(self, event: QMouseEvent) -> None:  # type: ignore[reportIncompatibleMethodOverride]
+    def mousePressEvent(self, event: QMouseEvent) -> None:  # pyright: ignore[reportIncompatibleMethodOverride]
         if event.button() == Qt.MouseButton.MiddleButton:
             self.panning = True
             self.panPoint = event.position().toPoint()
 
-    def mouseMoveEvent(self, event: QMouseEvent) -> None:  # type: ignore[reportIncompatibleMethodOverride]
+    def mouseMoveEvent(self, event: QMouseEvent) -> None:  # pyright: ignore[reportIncompatibleMethodOverride]
         pos = event.position().toPoint()
         if self.panning:
             delta = pos - self.panPoint
@@ -110,11 +111,11 @@ class ImageWidget(QWidget):
             self.panPoint = pos
             self.update()
 
-    def mouseReleaseEvent(self, event: QMouseEvent) -> None:  # type: ignore[reportIncompatibleMethodOverride]
+    def mouseReleaseEvent(self, event: QMouseEvent) -> None:  # pyright: ignore[reportIncompatibleMethodOverride]
         if self.panning and event.button() == Qt.MouseButton.MiddleButton:
             self.panning = False
 
-    def wheelEvent(self, event: QWheelEvent) -> None:  # type: ignore[reportIncompatibleMethodOverride]
+    def wheelEvent(self, event: QWheelEvent) -> None:  # pyright: ignore[reportIncompatibleMethodOverride]
         delta = event.angleDelta().y()
         factor = 1.25 if delta > 0 else 0.8
         old_pos = event.position().toPoint()
@@ -126,27 +127,27 @@ class ImageWidget(QWidget):
         self.update()
 
     # endregion
-    def paintEvent(self, _event: QPaintEvent) -> None:  # type: ignore[reportIncompatibleMethodOverride]
+    def paintEvent(self, _event: QPaintEvent) -> None:  # pyright: ignore[reportIncompatibleMethodOverride]
         painter = QPainter(self)
         painter.fillRect(self.rect(), QColor(45, 45, 45))
 
         if self.scaled_pixmap:
             painter.drawPixmap(self.offset, self.scaled_pixmap)
 
-    def resizeEvent(self, event: QResizeEvent) -> None:  # type: ignore[reportIncompatibleMethodOverride]
+    def resizeEvent(self, event: QResizeEvent) -> None:  # pyright: ignore[reportIncompatibleMethodOverride]
         super().resizeEvent(event)
         if self.pixmap:
             self.UpdateScaling()
             self.update()
 
-    def dragEnterEvent(self, event: QDragEnterEvent) -> None:  # type: ignore[reportIncompatibleMethodOverride]
+    def dragEnterEvent(self, event: QDragEnterEvent) -> None:  # pyright: ignore[reportIncompatibleMethodOverride]
         if mimeData := event.mimeData():
             if mimeData.hasUrls():
                 event.acceptProposedAction()
             else:
                 event.ignore()
 
-    def dropEvent(self, event: QDropEvent) -> None:  # type: ignore[reportIncompatibleMethodOverride]
+    def dropEvent(self, event: QDropEvent) -> None:  # pyright: ignore[reportIncompatibleMethodOverride]
         urls: list = []
         if mimeData := event.mimeData():
             urls = mimeData.urls()
@@ -156,21 +157,35 @@ class ImageWidget(QWidget):
     # endregion
 
     # region Utility
+    def Rename(self) -> None:
+        if self.image_path:
+            text, ok = QInputDialog.getText(
+                self,
+                "Enter New Name",
+                self.image_path.name,
+                text=self.image_path.stem,
+            )
+
+            if ok and text:
+                dst = self.image_path.parent / f"{text}{self.image_path.suffix}"
+                self.image_path.rename(dst)
+                self.LoadNext(self.image_path)
+
     def sizeHint(self) -> QSize:
         if self.scaled_pixmap:
             return self.scaled_pixmap.size()
         return super().sizeHint()
 
-    def reset(self) -> None:
+    def reset(self, preservePolygons: bool = False) -> None:
         self.zoom = 1.0
         self.baseScale = 1.0
         self.offset = QPoint()
-        self.saveBounds = []
+        if not preservePolygons:
+            self.saveBounds = []
         self.UpdateScaling()
         self.update()
 
-    def update(self) -> None:  # type: ignore[reportIncompatibleMethodOverride]
-        self.saveBounds = sorted(set(self.saveBounds), key=lambda x: x.RawPoints)
+    def update(self) -> None:  # pyright: ignore[reportIncompatibleMethodOverride]
         super().update()
 
     def ClampPoint(self, point: QPoint) -> QPoint:
@@ -190,7 +205,7 @@ class ImageWidget(QWidget):
 
     # endregion
 
-    def LoadImage(self, path: str | Path) -> None:
+    def LoadImage(self, path: str | Path, keepPolygons: bool = False) -> None:
         file = Path(path)
         if not file.is_file():
             return
@@ -210,10 +225,12 @@ class ImageWidget(QWidget):
             and hasattr(self.parent(), "imageLabel")
             and self.image_path is not None
         ):
-            files = self.GetImageFiles()
+            files = GetImageFiles(self.image_path.parent)
             idx = files.index(self.image_path) + 1
 
-            self.parent().imageLabel.setText(f"{self.image_path.name} ({idx}/{len(files)})")  # type: ignore[reportOptionalMemberAccess]
+            self.parent().imageLabel.setText(f"{self.image_path.name} ({idx}/{len(files)})")  # pyright: ignore[reportOptionalMemberAccess, reportAttributeAccessIssue]
+        if not keepPolygons:
+            self.saveBounds = []
         self.UpdateScaling()
         self.update()
 
@@ -243,7 +260,13 @@ class ImageWidget(QWidget):
                 cropped.save(str(output_path))
 
     def AddGrid(self, _vert: int, _horz: int) -> None:
-        raise NotImplementedError
+        ThrowNotImplemented(self)
+
+    def Trim(self) -> None:
+        ThrowNotImplemented(self)
+
+    def AutoDraw(self) -> None:
+        ThrowNotImplemented(self)
 
     def RemoveLast(self) -> None:
         if self.saveBounds:
@@ -254,19 +277,10 @@ class ImageWidget(QWidget):
             self.saveBounds.remove(poly)
         self.update()
 
-    def GetImageFiles(self) -> list[Path]:
-        ALLOWED_EXTS = [".png", ".jpg", ".jpeg", ".bmp", ".tiff", ".webp"]
-        if self.image_path is None or not self.image_path.parent.exists():
-            return []
-        files = sorted(
-            [f for f in self.image_path.parent.glob("*") if f.suffix.lower() in ALLOWED_EXTS]
-        )
-        return files
-
-    def LoadNext(self, p: Path | None, reverse: bool = False) -> None:
+    def LoadNext(self, p: Path | None, reverse: bool = False, keepPolygons: bool = False) -> None:
         if p is None:
             return
-        files = self.GetImageFiles()
+        files = GetImageFiles(p.parent)
         idx = -10
         if p.exists():
             idx = files.index(p)
@@ -275,13 +289,13 @@ class ImageWidget(QWidget):
             idx = files.index(position[0]) - 1 if position else -1
         if idx >= -1:
             if idx + 1 < len(files) and reverse is False:
-                self.LoadImage(str(files[idx + 1]))
+                self.LoadImage(str(files[idx + 1]), keepPolygons=keepPolygons)
             elif idx - 1 >= 0 and reverse is True:
-                self.LoadImage(str(files[idx - 1]))
+                self.LoadImage(str(files[idx - 1]), keepPolygons=keepPolygons)
             elif idx + 1 >= len(files):
-                self.LoadImage(str(files[0]))
+                self.LoadImage(str(files[0]), keepPolygons=keepPolygons)
             elif idx - 1 < 0:
-                self.LoadImage(str(files[len(files) - 1]))
+                self.LoadImage(str(files[len(files) - 1]), keepPolygons=keepPolygons)
 
     @property
     def isFullyCovered(self) -> bool:

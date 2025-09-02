@@ -2,9 +2,7 @@
 
 import sys
 from pathlib import Path
-from pprint import pp
 
-import winshell
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QImageReader, QKeyEvent
 from PyQt6.QtWidgets import (
@@ -12,11 +10,9 @@ from PyQt6.QtWidgets import (
     QCheckBox,
     QFrame,
     QHBoxLayout,
-    QInputDialog,
     QLabel,
-    QMessageBox,
+    QLineEdit,
     QPushButton,
-    QSpinBox,
     QVBoxLayout,
     QWidget,
 )
@@ -24,7 +20,9 @@ from send2trash import send2trash
 
 from src.BoxesWidget import BoxWidget
 from src.Components import Polygon
+from src.ImageWidget import ImageWidget
 from src.LinesWidget import LineWidget
+from src.Utility import RestoreFromRecycle
 
 QImageReader.setAllocationLimit(0)
 
@@ -32,99 +30,97 @@ QImageReader.setAllocationLimit(0)
 class MainWindow(QWidget):
     """Main window widget."""
 
+    ImageViewer: ImageWidget
+
+    # region Setup
     def __init__(self) -> None:
         super().__init__()
         self.setWindowTitle("Image Splitter")
         self.setStyleSheet(
             """
             QFrame {max-width: 250px}
-            QSpinBox {max-width: 50px }
+            QLineEdit {max-width: 50px }
             QWidget { background-color: #2b2b2b; color: #f0f0f0; }
             QCheckBox, QPushButton, QLabel {background-color: #3c3f41; border: none; padding: 5px;}
             QPushButton:hover, QCheckBox:hover { background-color: #4b4f51; }
-            QLabel { padding: 10px; font-weight: bold; }
         """,
         )
 
-        self.imageViewer = BoxWidget()
-        self.imageLabel = QLabel("")
+        self.ImageViewer = LineWidget()
+        self.imageLabel = QLabel()
+        self.imageLabel.setStyleSheet("")
+
         # Mode toggle button
         self.modeToggle = QPushButton("Switch to Box Mode")
         self.modeToggle.setStyleSheet("background-color: #4CAF50; font-weight: bold;")
-
-        # Mode indicator label
-        self.modeLabel = QLabel("Current Mode: LINE SPLITTER")
-        self.modeLabel.setStyleSheet("background-color: #2196F3; color: white; font-weight: bold;")
 
         # Control buttons
         self.saveBtn = QPushButton("Save Subsections")
         self.deleteLastBtn = QPushButton("Delete Last")
         self.deleteImgBtn = QPushButton("Delete IMG")
         self.resetBtn = QPushButton("Reset")
-        self.nextBtn = QPushButton("Next Image")
 
         # Checkboxes
         self.polygonViewCheck = QCheckBox("View Polygons")
+        self.keepPolygonsCheck = QCheckBox("Keep Polygons")
         self.loadNextCheck = QCheckBox("Load Next")
         self.loadNextCheck.setChecked(True)
         self.subfolderCheck = QCheckBox("Save to subfolder")
         self.previewLinesCheck = QCheckBox("Preview Lines")
         self.previewLinesCheck.setChecked(True)
+        self.trimBtn = QPushButton("Trim Bounds")
         self.addGridBtn = QPushButton("Add Grid")
-        self.gridWidth = QSpinBox()
-        self.gridWidth.setValue(1)
-        self.gridWidth.setRange(1, 100)
-        self.gridHeight = QSpinBox()
-        self.gridHeight.setValue(1)
-        self.gridHeight.setRange(1, 100)
+        self.gridEntry = QLineEdit()
+        self.gridEntry.setText("1x1")
+        self.gridEntry.setStyleSheet("max-width:50px")
 
         # Connect signals
         self.modeToggle.clicked.connect(self.ToggleMode)
         self.saveBtn.clicked.connect(self.Save)
-        self.deleteLastBtn.clicked.connect(self.removeLast)
-        self.deleteImgBtn.clicked.connect(self.deleteIMG)
+        self.deleteLastBtn.clicked.connect(self.DeleteLastPolygon)
+        self.deleteImgBtn.clicked.connect(self.DeleteIMG)
         self.resetBtn.clicked.connect(self.reset)
         self.previewLinesCheck.toggled.connect(self.ToggleLinePreview)
-        self.polygonViewCheck.toggled.connect(self.LoadPolygonView)
+        self.polygonViewCheck.toggled.connect(self.DisplayPolygons)
         self.addGridBtn.clicked.connect(self.AddGrid)
-        self.nextBtn.clicked.connect(lambda: self.imageViewer.LoadNext(self.imageViewer.image_path))
+        self.trimBtn.clicked.connect(self.Trim)
 
         # Layout setup
         self.SetupLayout()
         self.resize(1200, 800)
+        self.ToggleMode()
 
         if sys.argv and len(sys.argv) > 1:
             imgPath = Path(sys.argv[1])
             if imgPath.is_file():
-                self.imageViewer.LoadImage(imgPath)
+                self.ImageViewer.LoadImage(imgPath)
 
     def SetupLayout(self) -> None:
         # Top row: Mode controls
         top_layout = QHBoxLayout()
-        top_layout.addWidget(self.modeLabel)
+        top_layout.addWidget(self.polygonViewCheck)
+        top_layout.addWidget(self.keepPolygonsCheck)
         top_layout.addWidget(self.modeToggle)
         top_layout.addStretch()
         top_layout.addWidget(self.imageLabel)
         top_layout.addStretch()
         top_layout.addWidget(self.deleteLastBtn)
+        top_layout.addWidget(self.trimBtn)
         top_layout.addWidget(self.addGridBtn)
-        top_layout.addWidget(self.gridWidth)
-        top_layout.addWidget(self.gridHeight)
+        top_layout.addWidget(self.gridEntry)
 
         # Middle row: Image widget
         self.middle_layout = QHBoxLayout()
-        self.middle_layout.addWidget(self.imageViewer)
+        self.middle_layout.addWidget(self.ImageViewer)
 
         # Bottom row: Controls
         bottom_layout = QHBoxLayout()
         bottom_layout.addWidget(self.subfolderCheck)
         bottom_layout.addWidget(self.previewLinesCheck)
-        bottom_layout.addWidget(self.polygonViewCheck)
         bottom_layout.addWidget(self.loadNextCheck)
         bottom_layout.addStretch()
         for btn in (
             self.resetBtn,
-            self.nextBtn,
             self.deleteImgBtn,
             self.saveBtn,
         ):
@@ -137,97 +133,83 @@ class MainWindow(QWidget):
         main_layout.addLayout(bottom_layout)
         self.setLayout(main_layout)
 
-    def keyPressEvent(self, a0: QKeyEvent | None) -> None:
+    # endregion
+    # region InputHandlers
+    def keyPressEvent(self, a0: QKeyEvent | None) -> None:  # noqa: C901
         if a0 is None:
             return
         match a0.key():
-            case Qt.Key.Key_W:
-                self.deleteIMG()
-            case Qt.Key.Key_E:
-                self.imageViewer.LoadNext(self.imageViewer.image_path)
             case Qt.Key.Key_Q:
-                self.imageViewer.LoadNext(self.imageViewer.image_path, reverse=True)
+                self.ImageViewer.LoadNext(
+                    self.ImageViewer.image_path,
+                    reverse=True,
+                    keepPolygons=self.keepPolygonsCheck.isChecked(),
+                )
+            case Qt.Key.Key_W:
+                self.DeleteIMG()
+            case Qt.Key.Key_E:
+                self.ImageViewer.LoadNext(
+                    self.ImageViewer.image_path,
+                    keepPolygons=self.keepPolygonsCheck.isChecked(),
+                )
+            case Qt.Key.Key_T:
+                self.Trim()
+            case Qt.Key.Key_U:
+                RestoreFromRecycle(self)
+            case Qt.Key.Key_A:
+                self.ImageViewer.AutoDraw()
             case Qt.Key.Key_Escape:
                 self.reset()
             case Qt.Key.Key_Return | Qt.Key.Key_Enter:
                 self.Save()
-            case Qt.Key.Key_U:
-                files = sorted(winshell.recycle_bin(), key=lambda x: x.recycle_date())
-                file = files[-1].original_filename()
-                pp(files)
-                dlg = QMessageBox(self)
-                dlg.setWindowTitle("File Restored")
-                dlg.setText(f"Restore {Path(file).name}?")
-                dlg.setStandardButtons(
-                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                )
-                btn = dlg.exec()
-                if btn == QMessageBox.StandardButton.Yes:
-                    winshell.undelete(file)
-                    self.imageViewer.LoadImage(file)
             case Qt.Key.Key_F2:
-                if self.imageViewer.image_path:
-                    text, ok = QInputDialog.getText(
-                        self,
-                        "Enter New Name",
-                        self.imageViewer.image_path.name,
-                        text=self.imageViewer.image_path.stem,
-                    )
+                self.ImageViewer.Rename()
+            case Qt.Key.Key_Backspace:
+                self.DeleteLastPolygon()
 
-                    if ok and text:
-                        dst = (
-                            self.imageViewer.image_path.parent
-                            / f"{text}{self.imageViewer.image_path.suffix}"
-                        )
-                        self.imageViewer.image_path.rename(dst)
-                        self.imageViewer.LoadNext(self.imageViewer.image_path)
+        self.update()
 
     def ToggleMode(self) -> None:
         """Toggle between line and box modes."""
-        self.middle_layout.removeWidget(self.imageViewer)
-        if isinstance(self.imageViewer, BoxWidget):
+        self.middle_layout.removeWidget(self.ImageViewer)
+        if isinstance(self.ImageViewer, BoxWidget):
             self.previewLinesCheck.setEnabled(False)
             self.modeToggle.setText("Switch to Box Mode")
             self.modeToggle.setStyleSheet("background-color: #4CAF50; font-weight: bold;")
-            self.modeLabel.setText("Current Mode: LINE SPLITTER")
-            self.modeLabel.setStyleSheet(
-                "background-color: #2196F3; color: white; font-weight: bold;",
-            )
             self.previewLinesCheck.setEnabled(True)
-            self.imageViewer = LineWidget(
-                self.imageViewer.image_path,
-                self.imageViewer.saveBounds,
+            self.ImageViewer = LineWidget(
+                self.ImageViewer.image_path,
+                self.ImageViewer.saveBounds,
             )
         else:
             self.modeToggle.setText("Switch to Line Mode")
-            self.modeToggle.setStyleSheet("background-color: #FF9800; font-weight: bold;")
-            self.modeLabel.setText("Current Mode: BOX CROPPER")
-            self.modeLabel.setStyleSheet(
-                "background-color: #FF9800; color: white; font-weight: bold;",
+            self.modeToggle.setStyleSheet("background-color: #b350af; font-weight: bold;")
+            self.ImageViewer = BoxWidget(
+                self.ImageViewer.image_path,
+                self.ImageViewer.saveBounds,
             )
-            self.imageViewer = BoxWidget(
-                self.imageViewer.image_path,
-                self.imageViewer.saveBounds,
-            )
-        self.middle_layout.addWidget(self.imageViewer)
-        self.imageViewer.update()
+        self.middle_layout.addWidget(self.ImageViewer)
+        self.ImageViewer.update()
         self.update()
         self.reset()
-        self.LoadPolygonView()
+        self.DisplayPolygons()
 
-    def removeLast(self) -> None:
-        iw = self.imageViewer
+    def DeleteLastPolygon(self) -> None:
+        iw = self.ImageViewer
         iw.RemoveLast()
         self.update()
 
-    def LoadPolygonView(self) -> None:
-        item = self.middle_layout.itemAt(0).widget()
+    def DisplayPolygons(self) -> None:
+        if item := self.middle_layout.itemAt(0):
+            item = item.widget()
+        else:
+            return
         if isinstance(item, QFrame):
             item.deleteLater()
-        if self.polygonViewCheck.isChecked() and self.imageViewer.saveBounds:
+        if self.polygonViewCheck.isChecked() and self.ImageViewer.saveBounds:
             polygonViewer = QFrame()
             layout = QVBoxLayout()
-            for idx, polygon in enumerate(self.imageViewer.saveBounds):
+            for idx, polygon in enumerate(self.ImageViewer.saveBounds):
                 p_frame = QFrame()
                 p_layout = QHBoxLayout()
                 deleteBtn = QPushButton("❌")
@@ -240,8 +222,8 @@ class MainWindow(QWidget):
                 p_layout.addStretch()
 
                 def DeletePoly(element: Polygon) -> None:
-                    self.imageViewer.RemovePolygon(element)
-                    self.LoadPolygonView()
+                    self.ImageViewer.RemovePolygon(element)
+                    self.DisplayPolygons()
 
                 deleteBtn.clicked.connect(lambda _self, p=polygon: DeletePoly(p))
                 p_frame.setLayout(p_layout)
@@ -252,41 +234,52 @@ class MainWindow(QWidget):
             self.middle_layout.insertWidget(0, polygonViewer)
         self.update()
 
-    def deleteIMG(self) -> None:
-        im = self.imageViewer.image_path
+    def DeleteIMG(self) -> None:
+        im = self.ImageViewer.image_path
         if im is None:
             return
-        self.imageViewer.reset()
+        self.ImageViewer.reset()
         if self.loadNextCheck.isChecked():
-            self.imageViewer.LoadNext(im)
+            self.ImageViewer.LoadNext(im)
 
         if im and im.exists():
             send2trash(im)
         self.update()
 
+    def Trim(self) -> None:
+        self.ImageViewer.Trim()
+
     def reset(self) -> None:
-        self.imageViewer.reset()
-        self.gridWidth.setValue(1)
-        self.gridHeight.setValue(1)
+        self.ImageViewer.reset(self.keepPolygonsCheck.isChecked())
+        self.gridEntry.setText("1x1")
         self.polygonViewCheck.setChecked(False)
         self.ToggleLinePreview(self.previewLinesCheck.isChecked())
 
     def ToggleLinePreview(self, checked: bool) -> None:
         """Toggle the display of extended lines and boundaries."""
-        self.imageViewer.show_extended_lines = checked
-        self.imageViewer.update()
+        self.ImageViewer.previewLines = checked
+        self.ImageViewer.update()
 
     def Save(self) -> None:
-        self.imageViewer.SaveSections(self.subfolderCheck.isChecked())
-        if self.imageViewer.isFullyCovered:
-            self.deleteIMG()
+        self.ImageViewer.SaveSections(self.subfolderCheck.isChecked())
+        if self.ImageViewer.isFullyCovered:
+            self.DeleteIMG()
 
     def AddGrid(self) -> None:
-        self.imageViewer.AddGrid(self.gridWidth.value(), self.gridHeight.value())
+        numerics: list[int] = [
+            int(x) for x in self.gridEntry.text().split("x", maxsplit=1) if x.isnumeric()
+        ]
+        if "x" not in self.gridEntry.text() or len(numerics) != 2:
+            return
+        vert, horz = numerics
+        self.ImageViewer.AddGrid(vert, horz)
+
+    # endregion
 
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
+    app.setStyle("Material")
     window = MainWindow()
     window.show()
     sys.exit(app.exec())
