@@ -39,16 +39,15 @@ class MainWindow(QWidget):
         self.setStyleSheet(
             """
             QFrame {max-width: 250px}
-            QLineEdit {max-width: 50px }
             QWidget { background-color: #2b2b2b; color: #f0f0f0; }
-            QCheckBox, QPushButton, QLabel {background-color: #3c3f41; border: none; padding: 5px;}
+            QCheckBox, QPushButton {background-color: #3c3f41; border: none; padding: 5px;}
             QPushButton:hover, QCheckBox:hover { background-color: #4b4f51; }
         """,
         )
 
         self.ImageViewer = LineWidget()
         self.imageLabel = QLabel()
-        self.imageLabel.setStyleSheet("")
+        self.imageLabel.setStyleSheet("min-width: 350px")
 
         # Mode toggle button
         self.modeToggle = QPushButton("Switch to Box Mode")
@@ -72,7 +71,7 @@ class MainWindow(QWidget):
         self.addGridBtn = QPushButton("Add Grid")
         self.gridEntry = QLineEdit()
         self.gridEntry.setText("1x1")
-        self.gridEntry.setStyleSheet("max-width:50px")
+        self.gridEntry.setStyleSheet("max-width: 50px ")
 
         # Connect signals
         self.modeToggle.clicked.connect(self.ToggleMode)
@@ -158,6 +157,10 @@ class MainWindow(QWidget):
                 RestoreFromRecycle(self)
             case Qt.Key.Key_A:
                 self.ImageViewer.AutoDraw()
+            case Qt.Key.Key_S:
+                self.AddGrid()
+            case Qt.Key.Key_C:
+                self.ImageViewer.Crop()
             case Qt.Key.Key_Escape:
                 self.reset()
             case Qt.Key.Key_Return | Qt.Key.Key_Enter:

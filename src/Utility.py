@@ -20,7 +20,7 @@ def RestoreFromRecycle(parent: Any) -> None:
     btn = dlg.exec()
     if btn == QMessageBox.StandardButton.Yes:
         winshell.undelete(file)
-        parent.imageViewer.LoadImage(file)
+        parent.ImageViewer.LoadImage(file)
 
 
 def GetImageFiles(p: Path) -> list[Path]:

@@ -3,6 +3,7 @@
 import random
 from pathlib import Path
 
+from PIL import Image
 from PyQt6.QtCore import QPoint, QRect, QSize, Qt
 from PyQt6.QtGui import QColor, QMouseEvent, QPainter, QPaintEvent, QPen, QRegion
 
@@ -136,5 +137,12 @@ class BoxWidget(ImageWidget):
     def AutoDraw(self) -> None:
         if self.image_path:
             self.saveBounds.extend(SliceImage(self.image_path))
+
+    def Crop(self) -> None:
+        if self.image_path and len(self.saveBounds) == 1:
+            poly = self.saveBounds[0].bounding_points
+            Image.open(self.image_path).crop(poly).save(self.image_path)
+            self.LoadImage(self.image_path)
+        self.update()
 
     # endregion

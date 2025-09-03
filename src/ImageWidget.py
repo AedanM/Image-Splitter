@@ -266,6 +266,9 @@ class ImageWidget(QWidget):
     def AutoDraw(self) -> None:
         ThrowNotImplemented(self)
 
+    def Crop(self) -> None:
+        ThrowNotImplemented(self)
+
     def RemoveLast(self) -> None:
         if self.saveBounds:
             self.saveBounds.pop()

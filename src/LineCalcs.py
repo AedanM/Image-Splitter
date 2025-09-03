@@ -6,8 +6,8 @@ from PyQt6.QtCore import QPoint, QSize
 
 from src.Components import Polygon
 
-TOLERANCE = 10
-PADDING = 3
+TOLERANCE = 25
+PADDING = 0
 
 
 def SolveIntersections(image_size: QSize, line: Polygon) -> list[tuple]:
@@ -70,7 +70,7 @@ def ExtendLines(line: Polygon, image_size: QSize) -> Polygon | None:
 
 
 def MatchTuple(pixel: tuple, reference: tuple) -> bool:
-    return all(abs(pixel[i] - reference[0]) <= TOLERANCE for i in range(len(reference)))
+    return all(abs(pixel[i] - reference[i]) <= TOLERANCE for i in range(len(reference)))
 
 
 def DetermineBoundary(
@@ -109,4 +109,5 @@ def DetermineBoundary(
     bottom = min(bottom + PADDING, s_bottom)
     left = max(left - PADDING, s_left)
     right = min(right + PADDING, s_right)
+    print(corners, "->", (left, top, right, bottom))
     return [QPoint(left, top), QPoint(right + 1, bottom + 1)]

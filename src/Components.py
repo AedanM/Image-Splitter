@@ -80,6 +80,7 @@ class Polygon:
             case 2:
                 corners = self.bounding_points
                 if corners is None or None in corners:
+                    print("Invalid bounding points for trimming.")
                     return
                 self.Points = DetermineBoundary(
                     im.load(),
