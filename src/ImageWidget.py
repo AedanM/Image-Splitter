@@ -260,7 +260,7 @@ class ImageWidget(QWidget):
     def AddGrid(self, _vert: int, _horz: int) -> None:
         ThrowNotImplemented(self)
 
-    def Trim(self) -> None:
+    def Trim(self, _padding: int) -> None:
         ThrowNotImplemented(self)
 
     def AutoDraw(self) -> None:

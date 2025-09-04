@@ -9,9 +9,10 @@ from PyQt6.QtCore import QPoint
 from PyQt6.QtGui import QColor
 
 from .Components import Polygon
-from .LineCalcs import PADDING, MatchTuple
+from .LineCalcs import MatchTuple
 
 MIN_SECTION = 150
+PADDING = 10
 
 
 def GetSolidGrid(image: Image.Image) -> tuple[list, list]:

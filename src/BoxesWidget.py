@@ -128,10 +128,10 @@ class BoxWidget(ImageWidget):
                 region = region.united(QRegion(rect))
         return region.boundingRect() == img_rect
 
-    def Trim(self) -> None:
+    def Trim(self, padding: int) -> None:
         if self.image_path is not None:
             for poly in self.saveBounds:
-                poly.Trim(self.image_path)
+                poly.Trim(self.image_path, padding)
         self.update()
 
     def AutoDraw(self) -> None:

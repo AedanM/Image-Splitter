@@ -72,7 +72,7 @@ class Polygon:
         """Repr is just string."""
         return str(self)
 
-    def Trim(self, image: Image.Image | Path | str) -> None:
+    def Trim(self, image: Image.Image | Path | str, padding: int) -> None:
         from .LineCalcs import DetermineBoundary
 
         im: Image.Image = Image.open(image) if not isinstance(image, Image.Image) else image
@@ -84,5 +84,6 @@ class Polygon:
                     return
                 self.Points = DetermineBoundary(
                     im.load(),
-                    corners,  # pyright: ignore[reportArgumentType]
+                    corners,
+                    padding,
                 )
