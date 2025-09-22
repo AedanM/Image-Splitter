@@ -11,6 +11,8 @@ from src.Components import Polygon
 from src.ImageWidget import AVAILABLE_COLORS, ImageWidget
 from src.LineCalcs import ExtendLines
 
+from .Utility import ThrowNotImplemented
+
 
 class LineWidget(ImageWidget):
     """Line drawing image widget."""
@@ -180,3 +182,9 @@ class LineWidget(ImageWidget):
         if self.image_path:
             self.saveBounds.extend(SliceImage(self.image_path, True))
         self.update()
+
+    def Trim(self) -> None:
+        ThrowNotImplemented(self)
+
+    def Crop(self) -> None:
+        ThrowNotImplemented(self)

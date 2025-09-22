@@ -22,13 +22,17 @@ from .Utility import GetImageFiles, ThrowNotImplemented
 
 AVAILABLE_COLORS = [
     # reserve for bounds QColor("red"),
-    QColor("green"),
+    QColor(Qt.GlobalColor.green),
+    QColor(Qt.GlobalColor.darkCyan),
     # reserve for grid QColor("blue"),
-    QColor("yellow"),
-    QColor("magenta"),
-    QColor("cyan"),
-    QColor("orange"),
-    QColor("purple"),
+    QColor(Qt.GlobalColor.magenta),
+    QColor(Qt.GlobalColor.cyan),
+    QColor(
+        Qt.GlobalColor.darkYellow,
+    ),
+    QColor(
+        Qt.GlobalColor.darkMagenta,
+    ),
 ]
 
 

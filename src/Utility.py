@@ -9,8 +9,8 @@ from PyQt6.QtWidgets import QMessageBox, QWidget
 
 
 def RestoreFromRecycle(parent: Any) -> None:
-    files = sorted(winshell.recycle_bin(), key=lambda x: x.recycle_date())
-    file = files[-1].original_filename()
+    files = sorted(winshell.recycle_bin(), key=lambda x: x.recycle_date())  # pyright: ignore[reportAttributeAccessIssue]
+    file = files[-1].original_filename()  # pyright: ignore[reportAttributeAccessIssue]
     dlg = QMessageBox(parent)
     dlg.setWindowTitle("File Restored")
     dlg.setText(f"Restore {Path(file).name}?")
