@@ -1,15 +1,19 @@
 """Widget for cropping images with bounding rectangles."""
 
+import contextlib
 import random
 from pathlib import Path
 
+import send2trash
 from PIL import Image
 from PyQt6.QtCore import QPoint, QRect, QSize, Qt
-from PyQt6.QtGui import QColor, QMouseEvent, QPainter, QPaintEvent, QPen, QRegion
+from PyQt6.QtGui import QColor, QImage, QMouseEvent, QPainter, QPaintEvent, QPen, QRegion
 
 from src.AutoDraw import SliceImage
 from src.Components import Polygon
 from src.ImageWidget import AVAILABLE_COLORS, ImageWidget
+
+from .LineCalcs import DetermineBoundary
 
 
 class BoxWidget(ImageWidget):
@@ -131,7 +135,18 @@ class BoxWidget(ImageWidget):
     def Trim(self, padding: int) -> None:
         if self.image_path is not None:
             for poly in self.saveBounds:
-                poly.Trim(self.image_path, padding)
+                im: Image.Image = Image.open(self.image_path)
+                with contextlib.suppress(IndexError):
+                    if poly.isRectangle:
+                        corners = poly.bounding_points
+                        if corners is None or None in corners:
+                            print("Invalid bounding points for trimming.")
+                            continue
+                        poly.Points = DetermineBoundary(
+                            im.load(),
+                            corners,
+                            padding,
+                        )
         self.update()
 
     def AutoDraw(self) -> None:
@@ -142,9 +157,38 @@ class BoxWidget(ImageWidget):
         if self.image_path and len(self.saveBounds) == 1:
             bounds = self.saveBounds if keepBounds else []
             poly = self.saveBounds[0].bounding_points
-            Image.open(self.image_path).crop(poly).save(self.image_path)
+            im = Image.open(self.image_path).crop(poly)
+            send2trash.send2trash(self.image_path)
+            im.save(self.image_path)
             self.LoadImage(self.image_path)
             self.saveBounds = bounds
         self.update()
+
+    @property
+    def ReadyToCrop(self) -> bool:
+        return len(self.saveBounds) == 1
+
+    def SaveSections(self, createSubdir: bool) -> None:
+        if self.image_path is None or not self.image_path.exists():
+            return
+        qImage = QImage(str(self.image_path))
+        if qImage.isNull():
+            return
+        if self.saveBounds == []:
+            return
+
+        dst: Path = (
+            (self.image_path.parent / self.image_path.stem)
+            if createSubdir
+            else self.image_path.parent
+        )
+        dst.mkdir(exist_ok=True)
+        # Save each rectangle as a separate image
+        for idx, poly in enumerate(self.saveBounds, start=1):
+            rect = poly.bounding_rect
+            if rect.width() > 0 and rect.height() > 0:
+                cropped = qImage.copy(rect)
+                output_path = dst / f"{self.image_path.stem} {idx:03d}.png"
+                cropped.save(str(output_path))
 
     # endregion

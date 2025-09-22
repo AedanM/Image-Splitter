@@ -3,15 +3,16 @@
 import random
 from pathlib import Path
 
-from PyQt6.QtCore import QPoint, QSize, Qt
-from PyQt6.QtGui import QColor, QMouseEvent, QPainter, QPaintEvent, QPen
+import send2trash
+from numpy import median
+from PIL import Image
+from PyQt6.QtCore import QPoint, QRect, QSize, Qt
+from PyQt6.QtGui import QColor, QImage, QMouseEvent, QPainter, QPaintEvent, QPen
 
 from src.AutoDraw import SliceImage
 from src.Components import Polygon
 from src.ImageWidget import AVAILABLE_COLORS, ImageWidget
-from src.LineCalcs import ExtendLines
-
-from .Utility import ThrowNotImplemented
+from src.LineCalcs import ExtendLines, TrimOrthoLines
 
 
 class LineWidget(ImageWidget):
@@ -91,11 +92,23 @@ class LineWidget(ImageWidget):
 
         # Only add line if start and end points are different
         if self.line_start_point != self.line_current_end_point:
-            # Convert to image coordinates
             start = self.ScaleToImage(self.line_start_point)
             end = self.ScaleToImage(self.line_current_end_point)
+
+            # FOR NOW snap to straight lines
+            isVertical = abs(start.x() - end.x()) < abs(start.y() - end.y())
+            if isVertical:
+                medianX = round(median([start.x(), end.x()]))
+                start.setX(medianX)
+                end.setX(medianX)
+            else:
+                medianY = round(median([start.y(), end.y()]))
+                start.setY(medianY)
+                end.setY(medianY)
+
             # Create line in image coordinates
             line = Polygon([start, end], self.currentColor)
+            line.BindTo(width=self.pixmap.width(), height=self.pixmap.height())
             self.saveBounds.append(line)
 
         self.update()
@@ -106,29 +119,7 @@ class LineWidget(ImageWidget):
         super().LoadImage(path, keepPolygons)
         if not self.pixmap:
             return
-
-        image_size = QSize(self.pixmap.width(), self.pixmap.height())
-        self.saveBounds = list(
-            {
-                *self.saveBounds,
-                Polygon([QPoint(0, 0), QPoint(image_size.width(), 0)], QColor("red")),
-                Polygon(
-                    [
-                        QPoint(image_size.width(), 0),
-                        QPoint(image_size.width(), image_size.height()),
-                    ],
-                    QColor("red"),
-                ),
-                Polygon(
-                    [
-                        QPoint(image_size.width(), image_size.height()),
-                        QPoint(0, image_size.height()),
-                    ],
-                    QColor("red"),
-                ),
-                Polygon([QPoint(0, image_size.height()), QPoint(0, 0)], QColor("red")),
-            },
-        )
+        self.update()
 
     def PreviewLines(self, painter: QPainter) -> None:
         """Draw extended lines and boundary lines for visualization."""
@@ -138,7 +129,7 @@ class LineWidget(ImageWidget):
         image_size = QSize(self.pixmap.width(), self.pixmap.height())
 
         for line in self.saveBounds:
-            pen = QPen(line.Color, 5, Qt.PenStyle.DotLine)
+            pen = QPen(line.Color, 3)
             painter.setPen(pen)
             extended_line = ExtendLines(line, image_size)
             if extended_line:
@@ -146,14 +137,11 @@ class LineWidget(ImageWidget):
                 display_end = self.ScaleToDisplay(extended_line.Points[1])
                 painter.drawLine(display_start, display_end)
 
-    def SaveSections(self, createSubdir: bool) -> None:
-        super().SaveSections(createSubdir)
-
     def AddGrid(self, vert: int, horz: int) -> None:
         vertSpacing = round(self.pixmap.width() / vert)
         horzSpacing = round(self.pixmap.height() / horz)
-        offset = horzSpacing
-        for _ in range(horz - 1):
+        offset = 0
+        for _ in range(horz + 1):
             self.saveBounds.append(
                 Polygon(
                     [
@@ -164,8 +152,8 @@ class LineWidget(ImageWidget):
                 ),
             )
             offset += horzSpacing
-        offset = vertSpacing
-        for _ in range(vert - 1):
+        offset = 0
+        for _ in range(vert + 1):
             self.saveBounds.append(
                 Polygon(
                     [
@@ -181,10 +169,116 @@ class LineWidget(ImageWidget):
     def AutoDraw(self) -> None:
         if self.image_path:
             self.saveBounds.extend(SliceImage(self.image_path, True))
+        self.saveBounds = list(set(self.saveBounds))
         self.update()
 
-    def Trim(self) -> None:
-        ThrowNotImplemented(self)
+    def Trim(self, padding: int) -> None:
+        newBounds = self.saveBounds.copy()
+        if self.image_path is not None:
+            im = Image.open(self.image_path)
+            newBounds = [
+                Polygon(line, poly.Color)
+                for poly in self.saveBounds
+                for line in TrimOrthoLines(
+                    poly.Points,
+                    im.load(),
+                    padding,
+                    [self.pixmap.width(), self.pixmap.height()],
+                )
+            ]
+        self.saveBounds = newBounds
+        self.update()
 
-    def Crop(self) -> None:
-        ThrowNotImplemented(self)
+    @property
+    def ReadyToCrop(self) -> bool:
+        return (
+            len([x for x in self.saveBounds if x.isVerticalLine]) == 2
+            or len([x for x in self.saveBounds if x.isHorizontalLine]) == 2
+        )
+
+    def Crop(self, keepBounds: bool = False) -> None:
+        if not self.image_path or not self.saveBounds or not self.ReadyToCrop:
+            return
+        im = Image.open(self.image_path)
+        width, height = im.size
+        bounds = self.saveBounds if keepBounds else []
+
+        xs = [pt.x() for poly in self.saveBounds for pt in poly.Points]
+        ys = [pt.y() for poly in self.saveBounds for pt in poly.Points]
+
+        min_x, max_x = max(0, min(xs)), min(width, max(xs))
+        min_y, max_y = max(0, min(ys)), min(height, max(ys))
+
+        cropped = im.crop((min_x, min_y, max_x, max_y))
+        send2trash.send2trash(self.image_path)
+        cropped.save(self.image_path)
+
+        self.LoadImage(self.image_path)
+        self.saveBounds = bounds
+        self.update()
+
+    def SaveSections(self, createSubdir: bool = False) -> None:
+        if not self.image_path or not self.saveBounds:
+            return
+        im = Image.open(self.image_path)
+        width, height = im.size
+        edges = [
+            Polygon([QPoint(0, 0), QPoint(0, height - 1)], QColor(Qt.GlobalColor.red)),
+            Polygon([QPoint(0, 0), QPoint(width - 1, 0)], QColor(Qt.GlobalColor.red)),
+            Polygon(
+                [QPoint(0, height - 1), QPoint(width - 1, height - 1)],
+                QColor(Qt.GlobalColor.red),
+            ),
+            Polygon(
+                [QPoint(width - 1, 0), QPoint(width - 1, height - 1)],
+                QColor(Qt.GlobalColor.red),
+            ),
+        ]
+
+        for e in edges:
+            if e.RawPoints not in [p.RawPoints for p in self.saveBounds]:
+                self.saveBounds.append(e)
+
+        verts = [poly.Points[0].x() for poly in self.saveBounds if poly.isVerticalLine]
+        horz = [poly.Points[0].y() for poly in self.saveBounds if poly.isHorizontalLine]
+        if len(verts) < 2 and len(horz) < 2:
+            return
+
+        dst: Path = (
+            (self.image_path.parent / self.image_path.stem)
+            if createSubdir
+            else self.image_path.parent
+        )
+        dst.mkdir(exist_ok=True)
+        qImage = QImage(str(self.image_path))
+        for vertIdx in range(len(verts) - 1):
+            for horIdx in range(len(horz) - 1):
+                startX, startY = verts[vertIdx], horz[horIdx]
+                endX, endY = verts[vertIdx + 1], horz[horIdx + 1]
+                if startX == endX or startY == endY:
+                    continue
+                rect = QRect(startX, startY, endX - startX, endY - startY)
+                if rect.width() > 0 and rect.height() > 0:
+                    cropped = qImage.copy(rect)
+
+                    # check if entire section is equal to first pixel
+                    first_pixel = cropped.pixel(0, 0)
+                    all_same = True
+                    for y in range(cropped.height()):
+                        for x in range(cropped.width()):
+                            if cropped.pixel(x, y) != first_pixel:
+                                all_same = False
+                                break
+                        if not all_same:
+                            break
+                    if all_same:
+                        continue  # all pixels are the same, skip saving
+
+                    cropped = qImage.copy(rect)
+                    cropped.save(
+                        str(
+                            dst / f"{self.image_path.stem} "
+                            f"{vertIdx + 1:02d}_y{horIdx + 1:02d}"
+                            f"{self.image_path.suffix}",
+                        ),
+                    )

@@ -7,7 +7,6 @@ from PyQt6.QtGui import (
     QColor,
     QDragEnterEvent,
     QDropEvent,
-    QImage,
     QMouseEvent,
     QPainter,
     QPaintEvent,
@@ -28,7 +27,7 @@ AVAILABLE_COLORS = [
     QColor(Qt.GlobalColor.magenta),
     QColor(Qt.GlobalColor.cyan),
     QColor(
-        Qt.GlobalColor.darkYellow,
+        Qt.GlobalColor.darkRed,
     ),
     QColor(
         Qt.GlobalColor.darkMagenta,
@@ -243,28 +242,8 @@ class ImageWidget(QWidget):
         self.UpdateScaling()
         self.update()
 
-    def SaveSections(self, createSubdir: bool) -> None:
-        if self.image_path is None or not self.image_path.exists():
-            return
-        qImage = QImage(str(self.image_path))
-        if qImage.isNull():
-            return
-        if self.saveBounds == []:
-            return
-
-        dst: Path = (
-            (self.image_path.parent / self.image_path.stem)
-            if createSubdir
-            else self.image_path.parent
-        )
-        dst.mkdir(exist_ok=True)
-        # Save each rectangle as a separate image
-        for idx, poly in enumerate(self.saveBounds, start=1):
-            rect = poly.bounding_rect
-            if rect.width() > 0 and rect.height() > 0:
-                cropped = qImage.copy(rect)
-                output_path = dst / f"{self.image_path.stem} {idx:03d}.png"
-                cropped.save(str(output_path))
+    def SaveSections(self, _createSubdir: bool) -> None:
+        ThrowNotImplemented(self)
 
     def AddGrid(self, _vert: int, _horz: int) -> None:
         ThrowNotImplemented(self)
@@ -309,4 +288,8 @@ class ImageWidget(QWidget):
 
     @property
     def isFullyCovered(self) -> bool:
+        return False
+
+    @property
+    def ReadyToCrop(self) -> bool:
         return False

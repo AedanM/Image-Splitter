@@ -6,7 +6,7 @@ from pathlib import Path
 
 import numpy as np
 from PIL import Image
-from PyQt6.QtCore import QPoint
+from PyQt6.QtCore import QPoint, Qt
 from PyQt6.QtGui import QColor
 
 from .Components import Polygon
@@ -80,7 +80,6 @@ def GetBlocks(numList: list, maxVal: int) -> list[tuple]:
         out.append(values[-1])
         out.append(maxVal)
     out = sorted(set(out))
-    print(out)
     return [x for x in Chunk(out, 2) if len(x) == 2]
 
 
@@ -134,30 +133,33 @@ def SliceImage(p: Path, useLines: bool = False) -> list[Polygon]:
         cols = []
     if len(rows) < 2:
         rows = []
+    if rows or cols:
+        if not rows and cols:
+            rows = [(0, height)]
+        if not cols and rows:
+            cols = [(0, width)]
+        if useLines:
+            print(rows, cols)
+            out += [
+                Polygon([QPoint(0, r), QPoint(width, r)], QColor(Qt.GlobalColor.red))
+                for r in {val for rowEl in rows for val in rowEl}
+            ]
+            out += [
+                Polygon([QPoint(c, height), QPoint(c, height)], QColor(Qt.GlobalColor.red))
+                for c in {x for colVal in cols for x in colVal}
+            ]
 
-    if useLines:
-        row_lines = [
-            Polygon([QPoint(0, r[0]), QPoint(width, r[0])], QColor(255, 0, 0)) for r in rows
-        ] + [Polygon([QPoint(0, r[1]), QPoint(width, r[1])], QColor(255, 0, 0)) for r in rows]
-        col_lines = [
-            Polygon([QPoint(c[0], 0), QPoint(c[0], height)], QColor(255, 0, 0)) for c in cols
-        ] + [Polygon([QPoint(c[1], 0), QPoint(c[1], height)], QColor(255, 0, 0)) for c in cols]
-        out = row_lines + col_lines
-    else:
-        if rows:
-            for r in rows:
-                if cols:
-                    out.extend(
-                        [
-                            Polygon([QPoint(c[0], r[0]), QPoint(c[1], r[1])], QColor("red"))
-                            for c in cols
-                        ],
-                    )
-                else:
-                    out.append(Polygon([QPoint(0, r[0]), QPoint(width, r[1])], QColor("red")))
-        elif cols:
-            out.extend(
-                [Polygon([QPoint(c[0], 0), QPoint(c[1], height)], QColor("red")) for c in cols],
-            )
-
+        else:
+            out = [
+                Polygon(
+                    [
+                        QPoint(c[0], r[0]),
+                        QPoint(c[1], r[1]),
+                    ],
+                    QColor(Qt.GlobalColor.red),
+                )
+                for r in rows
+                for c in cols
+            ]
+    out = [x for x in out if x.Points[0] != x.Points[1]]
     return out

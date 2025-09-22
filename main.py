@@ -162,6 +162,8 @@ class MainWindow(QWidget):
                 RestoreFromRecycle(self)
             case Qt.Key.Key_A:
                 self.ImageViewer.AutoDraw()
+            case Qt.Key.Key_B:
+                self.ToggleMode()
             case Qt.Key.Key_S:
                 self.AddGrid()
             case Qt.Key.Key_K:
@@ -169,9 +171,9 @@ class MainWindow(QWidget):
             case Qt.Key.Key_V:
                 self.polygonViewCheck.setChecked(not self.polygonViewCheck.isChecked())
             case Qt.Key.Key_C:
-                self.ImageViewer.Crop(self.keepPolygonsCheck.isChecked()) if len(
-                    self.ImageViewer.saveBounds,
-                ) == 1 else self.Save()
+                self.ImageViewer.Crop(
+                    self.keepPolygonsCheck.isChecked(),
+                ) if self.ImageViewer.ReadyToCrop else self.Save()
             case Qt.Key.Key_Escape:
                 self.clear()
             case Qt.Key.Key_G:
@@ -271,6 +273,7 @@ class MainWindow(QWidget):
     def reset(self) -> None:
         self.ImageViewer.reset(self.keepPolygonsCheck.isChecked())
         self.gridEntry.setText("1x1")
+        self.trimPad.setValue(0)
         self.polygonViewCheck.setChecked(False)
         self.ToggleLinePreview(self.previewLinesCheck.isChecked())
 

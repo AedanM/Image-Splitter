@@ -1,9 +1,5 @@
 """Components and utilities."""
 
-import contextlib
-from pathlib import Path
-
-from PIL import Image
 from PyQt6.QtCore import QPoint, QRect
 from PyQt6.QtGui import QColor
 
@@ -60,32 +56,42 @@ class Polygon:
             return QRect()
         return QRect(points[0], points[1], points[2] - points[0], points[3] - points[1])
 
+    @property
+    def isRectangle(self) -> bool:
+        return len(self.Points) == 4 or (
+            len(self.Points) == 2
+            and self.Points[0].x() != self.Points[1].x()
+            and self.Points[0].y() != self.Points[1].y()
+        )
+
+    @property
+    def isVerticalLine(self) -> bool:
+        return len(self.Points) == 2 and self.Points[0].x() == self.Points[1].x()
+
+    @property
+    def isHorizontalLine(self) -> bool:
+        return len(self.Points) == 2 and self.Points[0].y() == self.Points[1].y()
+
     def BindTo(self, width: int, height: int) -> None:
         for p in self.Points:
             p.setX(max(min(p.x(), width), 0))
             p.setY(max(min(p.y(), height), 0))
 
     def __str__(self) -> str:
-        """Use color and points for str."""
-        return f"{self.Color.value()} [{','.join([f'({x.x()},{x.y()})' for x in self.Points])}]"
+        """Use color and points for str."""  #
+        pointStr = ",".join([f"({x[0]},{x[1]})" for x in sorted(self.RawPoints)])
+        return f"{self.Color.value()} [{pointStr}]"
 
     def __repr__(self) -> str:
         """Repr is just string."""
         return str(self)
 
-    def Trim(self, image: Image.Image | Path | str, padding: int) -> None:
-        from .LineCalcs import DetermineBoundary
+    def __hash__(self) -> int:
+        """Hash based on raw points."""
+        return hash(str(self))
 
-        im: Image.Image = Image.open(image) if not isinstance(image, Image.Image) else image
-        match len(self.Points):
-            case 2:
-                corners = self.bounding_points
-                if corners is None or None in corners:
-                    print("Invalid bounding points for trimming.")
-                    return
-                with contextlib.suppress(IndexError):
-                    self.Points = DetermineBoundary(
-                        im.load(),
-                        corners,
-                        padding,
-                    )
+    def __eq__(self, other: object) -> bool:
+        """Equality based on raw points and color."""
+        if not isinstance(other, Polygon):
+            return NotImplemented
+        return sorted(self.RawPoints) == sorted(other.RawPoints) and self.Color == other.Color
