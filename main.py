@@ -13,6 +13,7 @@ from PyQt6.QtWidgets import (
     QLabel,
     QLineEdit,
     QPushButton,
+    QSpinBox,
     QVBoxLayout,
     QWidget,
 )
@@ -69,6 +70,9 @@ class MainWindow(QWidget):
         self.previewLinesCheck.setChecked(True)
         self.trimBtn = QPushButton("Trim Bounds")
         self.addGridBtn = QPushButton("Add Grid")
+        self.trimPad = QSpinBox()
+        self.trimPad.setValue(0)
+        self.trimPad.setRange(-1000, 1000)
         self.gridEntry = QLineEdit()
         self.gridEntry.setText("1x1")
         self.gridEntry.setStyleSheet("max-width: 50px ")
@@ -105,6 +109,7 @@ class MainWindow(QWidget):
         top_layout.addStretch()
         top_layout.addWidget(self.deleteLastBtn)
         top_layout.addWidget(self.trimBtn)
+        top_layout.addWidget(self.trimPad)
         top_layout.addWidget(self.addGridBtn)
         top_layout.addWidget(self.gridEntry)
 
@@ -159,9 +164,20 @@ class MainWindow(QWidget):
                 self.ImageViewer.AutoDraw()
             case Qt.Key.Key_S:
                 self.AddGrid()
+            case Qt.Key.Key_K:
+                self.keepPolygonsCheck.setChecked(not self.keepPolygonsCheck.isChecked())
+            case Qt.Key.Key_V:
+                self.polygonViewCheck.setChecked(not self.polygonViewCheck.isChecked())
             case Qt.Key.Key_C:
-                self.ImageViewer.Crop()
+                self.ImageViewer.Crop(self.keepPolygonsCheck.isChecked()) if len(
+                    self.ImageViewer.saveBounds,
+                ) == 1 else self.Save()
             case Qt.Key.Key_Escape:
+                self.clear()
+            case Qt.Key.Key_G:
+                self.gridEntry.setFocus()
+                self.gridEntry.selectAll()
+            case Qt.Key.Key_R:
                 self.reset()
             case Qt.Key.Key_Return | Qt.Key.Key_Enter:
                 self.Save()
@@ -250,7 +266,7 @@ class MainWindow(QWidget):
         self.update()
 
     def Trim(self) -> None:
-        self.ImageViewer.Trim()
+        self.ImageViewer.Trim(self.trimPad.value())
 
     def reset(self) -> None:
         self.ImageViewer.reset(self.keepPolygonsCheck.isChecked())
@@ -258,15 +274,22 @@ class MainWindow(QWidget):
         self.polygonViewCheck.setChecked(False)
         self.ToggleLinePreview(self.previewLinesCheck.isChecked())
 
+    def clear(self) -> None:
+        self.ImageViewer.saveBounds = []
+        self.setFocus()
+        self.update()
+
     def ToggleLinePreview(self, checked: bool) -> None:
         """Toggle the display of extended lines and boundaries."""
         self.ImageViewer.previewLines = checked
         self.ImageViewer.update()
 
     def Save(self) -> None:
+        newBounds = [] if not self.keepPolygonsCheck.isChecked() else self.ImageViewer.saveBounds
         self.ImageViewer.SaveSections(self.subfolderCheck.isChecked())
         if self.ImageViewer.isFullyCovered:
             self.DeleteIMG()
+        self.ImageViewer.saveBounds = newBounds
 
     def AddGrid(self) -> None:
         numerics: list[int] = [

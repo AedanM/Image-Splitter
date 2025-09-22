@@ -163,17 +163,22 @@ class ImageWidget(QWidget):
     # region Utility
     def Rename(self) -> None:
         if self.image_path:
-            text, ok = QInputDialog.getText(
-                self,
-                "Enter New Name",
-                self.image_path.name,
-                text=self.image_path.stem,
-            )
-
-            if ok and text:
+            text = self.image_path.stem
+            dst = self.image_path.parent / f"{text}{self.image_path.suffix}"
+            while dst.exists():
+                text, ok = QInputDialog.getText(
+                    self,
+                    "Enter New Name",
+                    self.image_path.name,
+                    text=self.image_path.stem,
+                )
+                if not ok:
+                    return
                 dst = self.image_path.parent / f"{text}{self.image_path.suffix}"
-                self.image_path.rename(dst)
-                self.LoadNext(self.image_path)
+                if ok and text and not dst.exists():
+                    self.image_path.rename(dst)
+                    self.LoadNext(self.image_path)
+                    break
 
     def sizeHint(self) -> QSize:
         if self.scaled_pixmap:
@@ -264,13 +269,13 @@ class ImageWidget(QWidget):
     def AddGrid(self, _vert: int, _horz: int) -> None:
         ThrowNotImplemented(self)
 
-    def Trim(self) -> None:
+    def Trim(self, _padding: int) -> None:
         ThrowNotImplemented(self)
 
     def AutoDraw(self) -> None:
         ThrowNotImplemented(self)
 
-    def Crop(self) -> None:
+    def Crop(self, _keepBounds: bool = False) -> None:
         ThrowNotImplemented(self)
 
     def RemoveLast(self) -> None:
