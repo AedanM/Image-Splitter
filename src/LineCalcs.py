@@ -1,5 +1,6 @@
 """Calculations with lines."""
 
+import re
 from typing import Any
 
 from PyQt6.QtCore import QPoint, QSize
@@ -69,6 +70,10 @@ def ExtendLines(line: Polygon, image_size: QSize) -> Polygon | None:
 
 
 def MatchTuple(pixel: tuple, reference: tuple) -> bool:
+    if isinstance(pixel, int):
+        pixel = ((pixel,) * len(reference)) if isinstance(reference, tuple) else (pixel,)
+    if isinstance(reference, int):
+        reference = (reference,) * len(pixel)
     return all(abs(pixel[i] - reference[i]) <= TOLERANCE for i in range(len(reference)))
 
 

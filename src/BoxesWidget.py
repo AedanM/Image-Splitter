@@ -138,11 +138,13 @@ class BoxWidget(ImageWidget):
         if self.image_path:
             self.saveBounds.extend(SliceImage(self.image_path))
 
-    def Crop(self) -> None:
+    def Crop(self, keepBounds: bool = False) -> None:
         if self.image_path and len(self.saveBounds) == 1:
+            bounds = self.saveBounds if keepBounds else []
             poly = self.saveBounds[0].bounding_points
             Image.open(self.image_path).crop(poly).save(self.image_path)
             self.LoadImage(self.image_path)
+            self.saveBounds = bounds
         self.update()
 
     # endregion

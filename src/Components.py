@@ -1,5 +1,6 @@
 """Components and utilities."""
 
+import contextlib
 from pathlib import Path
 
 from PIL import Image
@@ -82,8 +83,9 @@ class Polygon:
                 if corners is None or None in corners:
                     print("Invalid bounding points for trimming.")
                     return
-                self.Points = DetermineBoundary(
-                    im.load(),
-                    corners,
-                    padding,
-                )
+                with contextlib.suppress(IndexError):
+                    self.Points = DetermineBoundary(
+                        im.load(),
+                        corners,
+                        padding,
+                    )

@@ -169,7 +169,9 @@ class MainWindow(QWidget):
             case Qt.Key.Key_V:
                 self.polygonViewCheck.setChecked(not self.polygonViewCheck.isChecked())
             case Qt.Key.Key_C:
-                self.ImageViewer.Crop() if len(self.ImageViewer.saveBounds) == 1 else self.Save()
+                self.ImageViewer.Crop(self.keepPolygonsCheck.isChecked()) if len(
+                    self.ImageViewer.saveBounds,
+                ) == 1 else self.Save()
             case Qt.Key.Key_Escape:
                 self.clear()
             case Qt.Key.Key_G:
@@ -283,9 +285,11 @@ class MainWindow(QWidget):
         self.ImageViewer.update()
 
     def Save(self) -> None:
+        newBounds = [] if not self.keepPolygonsCheck.isChecked() else self.ImageViewer.saveBounds
         self.ImageViewer.SaveSections(self.subfolderCheck.isChecked())
         if self.ImageViewer.isFullyCovered:
             self.DeleteIMG()
+        self.ImageViewer.saveBounds = newBounds
 
     def AddGrid(self) -> None:
         numerics: list[int] = [
