@@ -1,14 +1,31 @@
 """Calculations with lines."""
 
-import contextlib
-from email.charset import QP
+# removed unused imports
 from typing import Any
 
+import numpy as np
+from PIL import Image as PILImage
 from PyQt6.QtCore import QPoint, QSize
 
 from src.Components import Polygon
 
 TOLERANCE = 25
+
+
+def MakeNumpy(pixels: Any) -> np.ndarray | None:
+    """Try to convert `pixels` to a (H, W, C) uint8 NumPy array.
+
+    Returns None if conversion isn't supported; callers should fall back to
+    the original pixel-access loops in that case.
+    """
+    # Already an ndarray
+    if isinstance(pixels, np.ndarray):
+        return pixels
+    # PIL Image
+    if isinstance(pixels, PILImage.Image):
+        return np.asarray(pixels.convert("RGB"))
+    # Can't convert (e.g. PixelAccess) — caller will use fallback
+    return None
 
 
 def SolveIntersections(image_size: QSize, line: Polygon) -> list[tuple]:
@@ -80,35 +97,49 @@ def MatchTuple(pixel: tuple, reference: tuple) -> bool:
 
 
 def DetermineBoundary(
-    pixels: Any,
+    image: Any,
     corners: tuple[int, int, int, int],
     padding: int,
 ) -> list[QPoint]:
     s_left, s_top, s_right, s_bottom = corners
     left, top, right, bottom = corners
 
-    s_right -= 1
-    s_bottom -= 1
+    # Try vectorized path first
+    arr = MakeNumpy(pixels=image)
+    if arr is None:
+        raise TypeError(
+            "pixels must be a PIL.Image.Image or numpy.ndarray for vectorized operations",
+        )
+    # normalize exclusive indices as callers expect
     right -= 1
     bottom -= 1
 
+    # Move inward while matching the reference pixels
     while top < bottom:
-        if any(not MatchTuple(pixels[x, top], pixels[left, top]) for x in range(left, right)):
+        seg = arr[top, left:right, :]
+        ref = arr[top, left, :]
+        if not (np.abs(seg - ref) <= TOLERANCE).all(axis=1).all():
             break
         top += 1
 
     while bottom > top:
-        if any(not MatchTuple(pixels[x, bottom], pixels[left, bottom]) for x in range(left, right)):
+        seg = arr[bottom, left:right, :]
+        ref = arr[bottom, left, :]
+        if not (np.abs(seg - ref) <= TOLERANCE).all(axis=1).all():
             break
         bottom -= 1
 
     while left < right:
-        if any(not MatchTuple(pixels[left, y], pixels[left, top]) for y in range(top, bottom)):
+        seg = arr[top:bottom, left, :]
+        ref = arr[top, left, :]
+        if not (np.abs(seg - ref) <= TOLERANCE).all(axis=1).all():
             break
         left += 1
 
     while right > left:
-        if any(not MatchTuple(pixels[right, y], pixels[right, top]) for y in range(top, bottom)):
+        seg = arr[top:bottom, right, :]
+        ref = arr[top, right, :]
+        if not (np.abs(seg - ref) <= TOLERANCE).all(axis=1).all():
             break
         right -= 1
 
@@ -125,7 +156,7 @@ def TrimOrthoLines(
     padding: int,
     size: list[int],
 ) -> list[list[QPoint]]:
-    width, height = size
+    # size is passed through to FindVerticals/FindHorizontals when needed
     out: list[list[QPoint]] = []
     vertical = len({x.x() for x in points}) == 1
     horizontal = len({x.y() for x in points}) == 1
@@ -139,17 +170,35 @@ def TrimOrthoLines(
 def FindHorizontals(
     points: list[QPoint],
     size: list[int],
-    pixels: Any,
+    image: Any,
     padding: int,
 ) -> list[list[QPoint]]:
-    width, height = size
+    _width, _height = size
+    width = _width
+    height = _height
     out = []
     top = max(min(points[0].y(), height - 1), 0)
     bot = top
 
-    while top > 0 and all(MatchTuple(pixels[y, top], pixels[0, top]) for y in range(width)):
+    arr = MakeNumpy(image)
+    if arr is None:
+        raise TypeError(
+            "pixels must be a PIL.Image.Image or numpy.ndarray for vectorized operations",
+        )
+    height = arr.shape[0]
+    # expand upward
+    while top > 0:
+        row = arr[top, :, :]
+        ref = arr[top, 0, :]
+        if not (np.abs(row - ref) <= TOLERANCE).all(axis=1).all():
+            break
         top -= 1
-    while bot < height and all(MatchTuple(pixels[y, bot], pixels[0, bot]) for y in range(width)):
+    # expand downward
+    while bot < height:
+        row = arr[bot, :, :]
+        ref = arr[bot, 0, :]
+        if not (np.abs(row - ref) <= TOLERANCE).all(axis=1).all():
+            break
         bot += 1
 
     if top != points[0].y():
@@ -171,18 +220,32 @@ def FindHorizontals(
 def FindVerticals(
     points: list[QPoint],
     size: list[int],
-    pixels: Any,
+    image: Any,
     padding: int,
 ) -> list[list[QPoint]]:
     width, height = size
     out = []
     left = max(min(points[0].y(), width - 1), 0)
     right = left
-    while left > 0 and all(MatchTuple(pixels[left, y], pixels[left, 0]) for y in range(height)):
+    arr = MakeNumpy(image)
+    if arr is None:
+        raise TypeError(
+            "pixels must be a PIL.Image.Image or numpy.ndarray for vectorized operations",
+        )
+    width = arr.shape[1]
+    # move left
+    while left > 0:
+        col = arr[:, left, :]
+        ref = arr[0, left, :]
+        if not (np.abs(col - ref) <= TOLERANCE).all(axis=1).all():
+            break
         left -= 1
-    while right < width and all(
-        MatchTuple(pixels[right, y], pixels[right, 0]) for y in range(height)
-    ):
+    # move right
+    while right < width:
+        col = arr[:, right, :]
+        ref = arr[0, right, :]
+        if not (np.abs(col - ref) <= TOLERANCE).all(axis=1).all():
+            break
         right += 1
     right = min(right - padding, left)
     left = max(left + padding, right)

@@ -135,7 +135,6 @@ class BoxWidget(ImageWidget):
     def Trim(self, padding: int) -> None:
         if self.image_path is not None:
             for poly in self.saveBounds:
-                im: Image.Image = Image.open(self.image_path)
                 with contextlib.suppress(IndexError):
                     if poly.isRectangle:
                         corners = poly.bounding_points
@@ -143,7 +142,7 @@ class BoxWidget(ImageWidget):
                             print("Invalid bounding points for trimming.")
                             continue
                         poly.Points = DetermineBoundary(
-                            im.load(),
+                            self.image_obj,
                             corners,
                             padding,
                         )
@@ -151,13 +150,13 @@ class BoxWidget(ImageWidget):
 
     def AutoDraw(self) -> None:
         if self.image_path:
-            self.saveBounds.extend(SliceImage(self.image_path))
+            self.saveBounds.extend(SliceImage(self.image_obj))
 
     def Crop(self, keepBounds: bool = False) -> None:
         if self.image_path and len(self.saveBounds) == 1:
             bounds = self.saveBounds if keepBounds else []
             poly = self.saveBounds[0].bounding_points
-            im = Image.open(self.image_path).crop(poly)
+            im = self.image_obj.crop(poly)
             send2trash.send2trash(self.image_path)
             im.save(self.image_path)
             self.LoadImage(self.image_path)
@@ -190,5 +189,7 @@ class BoxWidget(ImageWidget):
                 cropped = qImage.copy(rect)
                 output_path = dst / f"{self.image_path.stem} {idx:03d}.png"
                 cropped.save(str(output_path))
+        if self.saveBounds:
+            self.LoadImage(dst / f"{self.image_path.stem} 001.png")
 
     # endregion

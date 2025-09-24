@@ -2,6 +2,7 @@
 
 from pathlib import Path
 
+from PIL import Image
 from PyQt6.QtCore import QPoint, QRect, QSize, Qt
 from PyQt6.QtGui import (
     QColor,
@@ -241,6 +242,7 @@ class ImageWidget(QWidget):
             self.saveBounds = []
         self.UpdateScaling()
         self.update()
+        self.image_obj = Image.open(self.image_path).copy()
 
     def SaveSections(self, _createSubdir: bool) -> None:
         ThrowNotImplemented(self)

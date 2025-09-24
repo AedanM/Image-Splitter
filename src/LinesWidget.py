@@ -168,20 +168,19 @@ class LineWidget(ImageWidget):
 
     def AutoDraw(self) -> None:
         if self.image_path:
-            self.saveBounds.extend(SliceImage(self.image_path, True))
+            self.saveBounds.extend(SliceImage(self.image_obj, True))
         self.saveBounds = list(set(self.saveBounds))
         self.update()
 
     def Trim(self, padding: int) -> None:
         newBounds = self.saveBounds.copy()
         if self.image_path is not None:
-            im = Image.open(self.image_path)
             newBounds = [
                 Polygon(line, poly.Color)
                 for poly in self.saveBounds
                 for line in TrimOrthoLines(
                     poly.Points,
-                    im.load(),
+                    self.image_obj,
                     padding,
                     [self.pixmap.width(), self.pixmap.height()],
                 )
@@ -199,8 +198,8 @@ class LineWidget(ImageWidget):
     def Crop(self, keepBounds: bool = False) -> None:
         if not self.image_path or not self.saveBounds or not self.ReadyToCrop:
             return
-        im = Image.open(self.image_path)
-        width, height = im.size
+
+        width, height = self.image_obj.size
         bounds = self.saveBounds if keepBounds else []
 
         xs = [pt.x() for poly in self.saveBounds for pt in poly.Points]
@@ -209,7 +208,7 @@ class LineWidget(ImageWidget):
         min_x, max_x = max(0, min(xs)), min(width, max(xs))
         min_y, max_y = max(0, min(ys)), min(height, max(ys))
 
-        cropped = im.crop((min_x, min_y, max_x, max_y))
+        cropped = self.image_obj.crop((min_x, min_y, max_x, max_y))
         send2trash.send2trash(self.image_path)
         cropped.save(self.image_path)
 
@@ -220,8 +219,7 @@ class LineWidget(ImageWidget):
     def SaveSections(self, createSubdir: bool = False) -> None:
         if not self.image_path or not self.saveBounds:
             return
-        im = Image.open(self.image_path)
-        width, height = im.size
+        width, height = self.image_obj.size
         edges = [
             Polygon([QPoint(0, 0), QPoint(0, height - 1)], QColor(Qt.GlobalColor.red)),
             Polygon([QPoint(0, 0), QPoint(width - 1, 0)], QColor(Qt.GlobalColor.red)),
@@ -282,3 +280,5 @@ class LineWidget(ImageWidget):
                             f"{self.image_path.suffix}",
                         ),
                     )
+        if self.saveBounds:
+            self.LoadImage(dst / f"{self.image_path.stem} 001.png")

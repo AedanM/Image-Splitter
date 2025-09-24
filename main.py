@@ -1,5 +1,6 @@
 """Main module for image splitter."""
 
+import subprocess
 import sys
 from pathlib import Path
 
@@ -164,6 +165,9 @@ class MainWindow(QWidget):
                 self.ImageViewer.AutoDraw()
             case Qt.Key.Key_B:
                 self.ToggleMode()
+            case Qt.Key.Key_P:
+                # open image in ms paint
+                subprocess.Popen(["mspaint", str(self.ImageViewer.image_path)])
             case Qt.Key.Key_S:
                 self.AddGrid()
             case Qt.Key.Key_K:

@@ -11,7 +11,7 @@ from PyQt6.QtCore import QPoint
 from PyQt6.QtGui import QColor
 
 from .Components import Polygon
-from .LineCalcs import MatchTuple
+from .LineCalcs import TOLERANCE
 
 MIN_SECTION = 150
 PADDING = 0
@@ -37,22 +37,34 @@ def RunMedian(numbers: list) -> list[int]:
 
 
 def GetSolidGrid(image: Image.Image) -> tuple[list, list]:
-    """Create a list of x indices where the entire column matches the target color."""
-    width, height = image.size
-    rows: list[int] = []
-    cols: list[int] = []
-    pixels = image.load()
-    if pixels:
-        cols = [
-            x
-            for x in range(width)
-            if all(MatchTuple(pixels[x, 0], pixels[x, y]) for y in range(height))
-        ]
-        rows = [
-            y
-            for y in range(height)
-            if all(MatchTuple(pixels[0, y], pixels[x, y]) for x in range(width))
-        ]
+    """Return row and column indices where the entire line matches the edge pixel.
+
+    Comparisons use the same tolerance as `MatchTuple`. This implementation
+    vectorizes the per-pixel comparisons with NumPy which is substantially
+    faster than iterating in Python for large images.
+    """
+    # Convert to a consistent 3-channel RGB array to simplify comparisons
+    img = image.convert("RGB")
+    arr = np.asarray(img)
+
+    # Ensure we have a 3D array: (height, width, channels)
+    if arr.ndim == 2:
+        arr = arr[:, :, None]
+
+    # height, width are available as arr.shape[:2] when needed; no local variables
+
+    # Columns: compare every pixel in column x to the top pixel at (0, x)
+    # refs_col: shape (1, width, channels) -> broadcast against arr
+    refs_col = arr[0:1, :, :]
+    diff_col = np.abs(arr - refs_col)
+    within_col = (diff_col <= TOLERANCE).all(axis=2)  # shape (height, width)
+    cols = np.where(within_col.all(axis=0))[0].tolist()
+
+    # Rows: compare every pixel in row y to the left pixel at (y, 0)
+    refs_row = arr[:, 0:1, :]
+    diff_row = np.abs(arr - refs_row)
+    within_row = (diff_row <= TOLERANCE).all(axis=2)  # shape (height, width)
+    rows = np.where(within_row.all(axis=1))[0].tolist()  # pyright: ignore[reportArgumentType]
 
     return (rows, cols)
 
@@ -62,7 +74,6 @@ def GetBlocks(numList: list, maxVal: int) -> list[tuple]:
         return []
     if len(numList) == 1:
         return numList
-    print(numList, "start")
     values: list[int] = sorted(set(numList))
     start: int = -1
     prev: int = values[0]
@@ -83,7 +94,6 @@ def GetBlocks(numList: list, maxVal: int) -> list[tuple]:
     if maxVal not in values:
         out.append(values[-1])
         out.append(maxVal)
-    print(out)
     out = sorted(set(out))
     return [x for x in Chunk(out, 2) if len(x) == 2]
 
@@ -132,9 +142,8 @@ def SimplifyRuns(lines: list[int], maxVal: int) -> list[tuple]:
     return out
 
 
-def SliceImage(p: Path, useLines: bool = False) -> list[Polygon]:
+def SliceImage(img: Image.Image, useLines: bool = False) -> list[Polygon]:
     out = []
-    img = Image.open(p)
     width, height = img.size
     rows, cols = GetSolidGrid(img)
     rows = SimplifyRuns(AddBounds(rows, height), height)
@@ -211,4 +220,4 @@ def SliceImage(p: Path, useLines: bool = False) -> list[Polygon]:
 
 if __name__ == "__main__":
     p = Path(sys.argv[1])
-    SliceImage(p, useLines=False)
+    SliceImage(Image.open(p), useLines=False)
