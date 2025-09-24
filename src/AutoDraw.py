@@ -1,12 +1,13 @@
 """Automatically slice image."""
 
+import sys
 from collections.abc import Iterable
 from itertools import islice
 from pathlib import Path
 
 import numpy as np
 from PIL import Image
-from PyQt6.QtCore import QPoint, Qt
+from PyQt6.QtCore import QPoint
 from PyQt6.QtGui import QColor
 
 from .Components import Polygon
@@ -59,6 +60,9 @@ def GetSolidGrid(image: Image.Image) -> tuple[list, list]:
 def GetBlocks(numList: list, maxVal: int) -> list[tuple]:
     if not numList:
         return []
+    if len(numList) == 1:
+        return numList
+    print(numList, "start")
     values: list[int] = sorted(set(numList))
     start: int = -1
     prev: int = values[0]
@@ -79,6 +83,7 @@ def GetBlocks(numList: list, maxVal: int) -> list[tuple]:
     if maxVal not in values:
         out.append(values[-1])
         out.append(maxVal)
+    print(out)
     out = sorted(set(out))
     return [x for x in Chunk(out, 2) if len(x) == 2]
 
@@ -109,57 +114,101 @@ def AddBounds(lines: list, maxVal: int) -> list:
     return sorted(lines)
 
 
-def SliceImage(p: Path, useLines: bool = False) -> list[Polygon]:
-    """Detect solid rows/cols and return polygons.
+def SimplifyRuns(lines: list[int], maxVal: int) -> list[tuple]:
+    minRun = round(maxVal * 0.1)
+    out = []
+    hold = []
+    for block in GetBlocks(lines, maxVal):
+        start, end = block[:2]
+        if hold:
+            start = hold[0][0]
+            hold = []
+        if (end - start) >= minRun:
+            out.append((start, end))
+        else:
+            hold = [(start, end)]
+    if hold:
+        out.append(hold[0])
+    return out
 
-    Detailed behaviour:
-    Args:
-        p: Path to image file.
-        useLines: If True, return line-style polygons (pairs of points representing lines).
-        prefer_grid: If True and both row and column splits are detected, return
-            full grid rectangles (useful for box-based slicing). If False, behaviour
-            falls back to lines or single-dimension boxes.
-    """
-    out: list[Polygon] = []
+
+def SliceImage(p: Path, useLines: bool = False) -> list[Polygon]:
+    out = []
     img = Image.open(p)
     width, height = img.size
     rows, cols = GetSolidGrid(img)
-    # Convert solid lines into continuous ranges and pair them
-    rows = Pairwise(RunMedian(AddBounds(rows, height)))
-    cols = Pairwise(RunMedian(AddBounds(cols, width)))
+    rows = SimplifyRuns(AddBounds(rows, height), height)
+    cols = SimplifyRuns(AddBounds(cols, width), width)
 
-    # If the detection produced ranges smaller than two boundaries, treat as empty
+    # rows = Pairwise(RunMedian(rows))
+    # cols = Pairwise(RunMedian(cols))
     if len(cols) < 2:
         cols = []
     if len(rows) < 2:
         rows = []
-    if rows or cols:
-        if not rows and cols:
-            rows = [(0, height)]
-        if not cols and rows:
-            cols = [(0, width)]
-        if useLines:
-            print(rows, cols)
-            out += [
-                Polygon([QPoint(0, r), QPoint(width, r)], QColor(Qt.GlobalColor.red))
-                for r in {val for rowEl in rows for val in rowEl}
-            ]
-            out += [
-                Polygon([QPoint(c, height), QPoint(c, height)], QColor(Qt.GlobalColor.red))
-                for c in {x for colVal in cols for x in colVal}
-            ]
-
-        else:
-            out = [
-                Polygon(
-                    [
-                        QPoint(c[0], r[0]),
-                        QPoint(c[1], r[1]),
-                    ],
-                    QColor(Qt.GlobalColor.red),
-                )
-                for r in rows
-                for c in cols
-            ]
-    out = [x for x in out if x.Points[0] != x.Points[1]]
+    if useLines:
+        rowBoxes = [
+            Polygon(
+                [
+                    QPoint(0, r[0]),
+                    QPoint(width, r[0]),
+                ],
+                QColor("purple"),
+            )
+            for r in rows
+        ] + [
+            Polygon(
+                [
+                    QPoint(0, r[1]),
+                    QPoint(width, r[1]),
+                ],
+                QColor("purple"),
+            )
+            for r in rows
+        ]
+        colboxes = [
+            Polygon(
+                [
+                    QPoint(c[0], 0),
+                    QPoint(c[0], height),
+                ],
+                QColor("purple"),
+            )
+            for c in cols
+        ] + [
+            Polygon(
+                [
+                    QPoint(c[1], 0),
+                    QPoint(c[1], height),
+                ],
+                QColor("purple"),
+            )
+            for c in cols
+        ]
+        out = rowBoxes + colboxes
+    else:
+        out = [
+            Polygon(
+                [
+                    QPoint(0, r[0]),
+                    QPoint(width, r[1]),
+                ],
+                QColor("purple"),
+            )
+            for r in rows
+        ] + [
+            Polygon(
+                [
+                    QPoint(c[0], 0),
+                    QPoint(c[1], height),
+                ],
+                QColor("purple"),
+            )
+            for c in cols
+        ]
     return out
+
+
+if __name__ == "__main__":
+    p = Path(sys.argv[1])
+    SliceImage(p, useLines=False)
