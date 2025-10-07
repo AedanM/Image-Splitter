@@ -45,7 +45,7 @@ def GetSolidGrid(image: Image.Image) -> tuple[list, list]:
     """
     # Convert to a consistent 3-channel RGB array to simplify comparisons
     img = image.convert("RGB")
-    arr = np.asarray(img)
+    arr = np.asarray(img).astype(np.int8)
 
     # Ensure we have a 3D array: (height, width, channels)
     if arr.ndim == 2:
@@ -149,13 +149,11 @@ def SliceImage(img: Image.Image, useLines: bool = False) -> list[Polygon]:
     rows = SimplifyRuns(AddBounds(rows, height), height)
     cols = SimplifyRuns(AddBounds(cols, width), width)
 
-    # rows = Pairwise(RunMedian(rows))
-    # cols = Pairwise(RunMedian(cols))
-    if len(cols) < 2:
-        cols = []
-    if len(rows) < 2:
-        rows = []
     if useLines:
+        if len(cols) < 2:
+            cols = []
+        if len(rows) < 2:
+            rows = []
         rowBoxes = [
             Polygon(
                 [
@@ -196,25 +194,18 @@ def SliceImage(img: Image.Image, useLines: bool = False) -> list[Polygon]:
         ]
         out = rowBoxes + colboxes
     else:
-        out = [
-            Polygon(
-                [
-                    QPoint(0, r[0]),
-                    QPoint(width, r[1]),
-                ],
-                QColor("purple"),
-            )
-            for r in rows
-        ] + [
-            Polygon(
-                [
-                    QPoint(c[0], 0),
-                    QPoint(c[1], height),
-                ],
-                QColor("purple"),
-            )
-            for c in cols
-        ]
+        print(cols, rows)
+        if len(cols) > 1 or len(rows) > 1:
+            for c in cols:
+                for r in rows:
+                    subpolys = SliceImage(
+                        img.crop((c[0], r[0], c[1], r[1])),
+                        useLines=False,
+                    )
+                    normalized_polys = [p.Translate(c[0], r[0]) for p in subpolys]
+                    out.extend(normalized_polys)
+        else:
+            out.append(Polygon([QPoint(0, 0), QPoint(width, height)], QColor("blue")))
     return out
 
 

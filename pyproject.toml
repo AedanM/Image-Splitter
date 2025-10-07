@@ -13,6 +13,10 @@ dependencies = [
     "pywin32",
     "pyinstaller",
     "cx_Freeze",
+    "pytesseract",
+    "translate",
+    "opencv-python",
+    "pyperclip",
 ]
 
 

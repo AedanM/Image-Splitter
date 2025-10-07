@@ -170,6 +170,10 @@ class MainWindow(QWidget):
                 subprocess.Popen(["mspaint", str(self.ImageViewer.image_path)])
             case Qt.Key.Key_S:
                 self.AddGrid()
+            case Qt.Key.Key_L:
+                self.ImageViewer.Translate()
+            case Qt.Key.Key_M:
+                self.ImageViewer.Translate(False)
             case Qt.Key.Key_K:
                 self.keepPolygonsCheck.setChecked(not self.keepPolygonsCheck.isChecked())
             case Qt.Key.Key_V:
@@ -191,7 +195,39 @@ class MainWindow(QWidget):
                 self.ImageViewer.Rename()
             case Qt.Key.Key_Backspace:
                 self.DeleteLastPolygon()
-
+            case Qt.Key.Key_O:
+                if self.ImageViewer.image_path and self.ImageViewer.image_path.parent.exists():
+                    bounds = self.ImageViewer.saveBounds
+                    start = self.ImageViewer.image_path
+                    for file in self.ImageViewer.image_path.parent.iterdir():
+                        print(file)
+                        if file.suffix.lower() in [".png", ".jpg", ".jpeg", ".bmp", ".gif"]:
+                            self.ImageViewer.LoadImage(file)
+                            self.ImageViewer.saveBounds = bounds
+                            self.ImageViewer.SaveSections(self.subfolderCheck.isChecked())
+                    self.ImageViewer.LoadImage(start)
+                    self.ImageViewer.saveBounds = bounds
+                    self.update()
+            case (
+                Qt.Key.Key_0
+                | Qt.Key.Key_1
+                | Qt.Key.Key_2
+                | Qt.Key.Key_3
+                | Qt.Key.Key_4
+                | Qt.Key.Key_5
+                | Qt.Key.Key_6
+                | Qt.Key.Key_7
+                | Qt.Key.Key_8
+                | Qt.Key.Key_9
+            ):
+                self.gridEntry.setText(
+                    "1x" + chr(a0.key())
+                    if self.ImageViewer.image_obj.size[0] < self.ImageViewer.image_obj.size[1]
+                    else chr(a0.key()) + "x1",
+                )
+                if a0.key() == Qt.Key.Key_0:
+                    self.gridEntry.setText(self.gridEntry.text().replace("0", "10"))
+                self.AddGrid()
         self.update()
 
     def ToggleMode(self) -> None:
@@ -263,9 +299,11 @@ class MainWindow(QWidget):
         im = self.ImageViewer.image_path
         if im is None:
             return
+        saveBounds = self.ImageViewer.saveBounds
         self.ImageViewer.reset()
         if self.loadNextCheck.isChecked():
             self.ImageViewer.LoadNext(im)
+            self.ImageViewer.saveBounds = saveBounds if self.keepPolygonsCheck.isChecked() else []
 
         if im and im.exists():
             send2trash(im)

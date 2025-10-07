@@ -22,6 +22,11 @@ def RestoreFromRecycle(parent: Any) -> None:
     )
     btn = dlg.exec()
     if btn == QMessageBox.StandardButton.Yes:
+        if Path(file).exists():
+            Path(file).rename(
+                Path(file).parent / ((Path(file).stem + " (edited)") + Path(file).suffix),
+            )
+        file = files[-1].original_filename()  # pyright: ignore[reportAttributeAccessIssue]
         winshell.undelete(file)
         parent.ImageViewer.LoadImage(file)
 

@@ -2,6 +2,7 @@
 
 from pathlib import Path
 
+import send2trash
 from PIL import Image
 from PyQt6.QtCore import QPoint, QRect, QSize, Qt
 from PyQt6.QtGui import (
@@ -258,6 +259,17 @@ class ImageWidget(QWidget):
 
     def Crop(self, _keepBounds: bool = False) -> None:
         ThrowNotImplemented(self)
+
+    def Translate(self, _auto: bool = False) -> None:
+        ThrowNotImplemented(self)
+
+    def SafeOverwrite(self, im: Image.Image) -> None:
+        if self.image_path is None:
+            return
+        if self.image_path.exists():
+            send2trash.send2trash(self.image_path)
+        im.save(self.image_path)
+        self.LoadImage(self.image_path)
 
     def RemoveLast(self) -> None:
         if self.saveBounds:

@@ -4,7 +4,9 @@ import contextlib
 import random
 from pathlib import Path
 
+import pyperclip as clipboard
 import send2trash
+import translate
 from PIL import Image
 from PyQt6.QtCore import QPoint, QRect, QSize, Qt
 from PyQt6.QtGui import QColor, QImage, QMouseEvent, QPainter, QPaintEvent, QPen, QRegion
@@ -12,8 +14,8 @@ from PyQt6.QtGui import QColor, QImage, QMouseEvent, QPainter, QPaintEvent, QPen
 from src.AutoDraw import SliceImage
 from src.Components import Polygon
 from src.ImageWidget import AVAILABLE_COLORS, ImageWidget
-
-from .LineCalcs import DetermineBoundary
+from src.LineCalcs import DetermineBoundary
+from src.TranslateArea import ExtractText, PutTextOnPolygon, TranslateText
 
 
 class BoxWidget(ImageWidget):
@@ -151,16 +153,39 @@ class BoxWidget(ImageWidget):
     def AutoDraw(self) -> None:
         if self.image_path:
             self.saveBounds.extend(SliceImage(self.image_obj))
+            print(self.saveBounds)
+
+    def Translate(self, Autotranslate: bool = True) -> None:
+        if self.image_path is None or not self.image_path.exists():
+            return
+        if self.saveBounds == []:
+            return
+
+        texts = ExtractText(self.image_obj, self.saveBounds)
+        if Autotranslate:
+            translated_texts = TranslateText(texts, target_language="en")
+        else:
+            translated_texts = []
+            for t in texts:
+                clipboard.copy(t)
+                translated_texts.append(input(t + ": "))
+        changed = False
+        for p in zip(self.saveBounds, translated_texts, strict=True):
+            if p[0] and p[1]:
+                self.image_obj = PutTextOnPolygon(self.image_obj, p[0], p[1])
+                changed = True
+        if changed:
+            self.SafeOverwrite(self.image_obj)
+        self.update()
 
     def Crop(self, keepBounds: bool = False) -> None:
         if self.image_path and len(self.saveBounds) == 1:
             bounds = self.saveBounds if keepBounds else []
             poly = self.saveBounds[0].bounding_points
             im = self.image_obj.crop(poly)
-            send2trash.send2trash(self.image_path)
-            im.save(self.image_path)
-            self.LoadImage(self.image_path)
+            self.SafeOverwrite(im)
             self.saveBounds = bounds
+
         self.update()
 
     @property

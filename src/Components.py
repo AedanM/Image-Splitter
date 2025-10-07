@@ -95,3 +95,8 @@ class Polygon:
         if not isinstance(other, Polygon):
             return NotImplemented
         return sorted(self.RawPoints) == sorted(other.RawPoints) and self.Color == other.Color
+
+    def Translate(self, dx: int, dy: int) -> "Polygon":
+        """Return a new polygon translated by dx, dy."""
+        new_points = [QPoint(p.x() + dx, p.y() + dy) for p in self.Points]
+        return Polygon(new_points, self.Color)
