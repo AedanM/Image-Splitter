@@ -36,6 +36,7 @@ class MainWindow(QWidget):
 
     # region Setup
     def __init__(self) -> None:
+        """Build base widget."""
         super().__init__()
         self.setWindowTitle("Image Splitter")
         self.setStyleSheet(
@@ -100,6 +101,7 @@ class MainWindow(QWidget):
                 self.ImageViewer.LoadImage(imgPath)
 
     def SetupLayout(self) -> None:
+        """Define buttons and layouts."""
         # Top row: Mode controls
         top_layout = QHBoxLayout()
         top_layout.addWidget(self.polygonViewCheck)
@@ -141,6 +143,7 @@ class MainWindow(QWidget):
     # endregion
     # region InputHandlers
     def keyPressEvent(self, a0: QKeyEvent | None) -> None:  # noqa: C901
+        """Handle all the keypresses."""
         if a0 is None:
             return
         match a0.key():
@@ -256,11 +259,13 @@ class MainWindow(QWidget):
         self.DisplayPolygons()
 
     def DeleteLastPolygon(self) -> None:
+        """Pop the last save bound."""
         iw = self.ImageViewer
         iw.RemoveLast()
         self.update()
 
     def DisplayPolygons(self) -> None:
+        """Render the current save bounds."""
         if item := self.middle_layout.itemAt(0):
             item = item.widget()
         else:
@@ -286,7 +291,7 @@ class MainWindow(QWidget):
                     self.ImageViewer.RemovePolygon(element)
                     self.DisplayPolygons()
 
-                deleteBtn.clicked.connect(lambda _self, p=polygon: DeletePoly(p))
+                deleteBtn.clicked.connect(lambda _, p=polygon: DeletePoly(p))
                 p_frame.setLayout(p_layout)
                 layout.addWidget(p_frame)
 
@@ -296,6 +301,7 @@ class MainWindow(QWidget):
         self.update()
 
     def DeleteIMG(self) -> None:
+        """Recycle Image and potentially load next."""
         im = self.ImageViewer.image_path
         if im is None:
             return
@@ -310,9 +316,11 @@ class MainWindow(QWidget):
         self.update()
 
     def Trim(self) -> None:
+        """Trim border from image."""
         self.ImageViewer.Trim(self.trimPad.value())
 
     def reset(self) -> None:
+        """Reset the entire widget."""
         self.ImageViewer.reset(self.keepPolygonsCheck.isChecked())
         self.gridEntry.setText("1x1")
         self.trimPad.setValue(0)
@@ -320,6 +328,7 @@ class MainWindow(QWidget):
         self.ToggleLinePreview(self.previewLinesCheck.isChecked())
 
     def clear(self) -> None:
+        """Clear all save bounds and set focus to main widget"""
         self.ImageViewer.saveBounds = []
         self.setFocus()
         self.update()
@@ -330,6 +339,7 @@ class MainWindow(QWidget):
         self.ImageViewer.update()
 
     def Save(self) -> None:
+        """Save the image as sections, defined by imageviewer boxes"""
         newBounds = [] if not self.keepPolygonsCheck.isChecked() else self.ImageViewer.saveBounds
         self.ImageViewer.SaveSections(self.subfolderCheck.isChecked())
         if self.ImageViewer.isFullyCovered:
@@ -337,6 +347,7 @@ class MainWindow(QWidget):
         self.ImageViewer.saveBounds = newBounds
 
     def AddGrid(self) -> None:
+        """Add defined grid to image viewer"""
         numerics: list[int] = [
             int(x) for x in self.gridEntry.text().split("x", maxsplit=1) if x.isnumeric()
         ]

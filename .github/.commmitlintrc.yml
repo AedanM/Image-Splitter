@@ -25,8 +25,6 @@ rules:
 
   scope-case:             [2, always, lower-case] # Scope must be lower case
 
-  # Error if subject is one of these cases (encourages lower-case)
-  subject-case:           [2, never, [sentence-case, start-case, pascal-case, upper-case]]
   subject-empty:          [2, never]              # Subject must not be empty
   subject-full-stop:      [2, never, "."]         # Subject must not end with a period
 
