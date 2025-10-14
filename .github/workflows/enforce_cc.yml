@@ -25,7 +25,7 @@ jobs:
 
       - name: Check Commit Messages
         uses: wagoid/commitlint-github-action@v6
-        with: { configFile: .commitlintrc.yml }---
+        with: { configFile: .github/.commitlintrc.yml }---
 name: Conventional Commits
 
 permissions:
@@ -52,4 +52,4 @@ jobs:
 
       - name: Check Commit Messages
         uses: wagoid/commitlint-github-action@v6
-        with: { configFile: .commitlintrc.yml }
+        with: { configFile: .github/.commitlintrc.yml }

@@ -48,6 +48,10 @@ Image Splitter is a desktop tool for splitting comic strip images (or any image)
 | F2          | Rename image                  |
 | Backspace   | Delete last polygon           |
 
+## Build
+
+Build with `uv run cxfreeze build`
+
 ## License
 
 MIT License
