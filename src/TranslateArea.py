@@ -1,7 +1,8 @@
-import cv2
+"""Translation and text rendering utilities for images."""
+
 import numpy as np
 import pytesseract
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFont
 from translate import Translator
 
 from .Components import Polygon
@@ -24,7 +25,7 @@ def TranslateText(texts: list[str], target_language: str = "en") -> list[str]:
     translator = Translator(
         provider="mymemory",
         from_lang="zh",
-        to_lang="en",
+        to_lang=target_language,
         email="aedan.mchale@gmail.com",
     )
     translated_texts = [translator.translate(text) for text in texts]
@@ -32,8 +33,27 @@ def TranslateText(texts: list[str], target_language: str = "en") -> list[str]:
     return translated_texts
 
 
-def WrapText(text, max_width, font, font_scale=1.0, thickness=1):
-    # Try to wrap text so each line fits in max_width
+def GetLuminance(rgb: tuple[int, ...]) -> float:
+    # Calculate luminance (perceived brightness)
+    r, g, b = rgb
+    return 0.299 * r + 0.587 * g + 0.114 * b
+
+
+def ContrastRatio(rgb1: tuple[int, ...], rgb2: tuple[int, ...]) -> float:
+    # Calculate contrast ratio between two colors (WCAG)
+    l1 = (GetLuminance(rgb1) + 0.05) / 255
+    l2 = (GetLuminance(rgb2) + 0.05) / 255
+    lighter = max(l1, l2)
+    darker = min(l1, l2)
+    return (lighter + 0.05) / (darker + 0.05)
+
+
+def WrapText(
+    text: str,
+    max_width: int,
+    font: ImageFont.ImageFont | ImageFont.FreeTypeFont,
+    draw: ImageDraw.ImageDraw,
+) -> list[str]:
     words = text.split()
     if not words:
         return [""]
@@ -41,29 +61,15 @@ def WrapText(text, max_width, font, font_scale=1.0, thickness=1):
     current = words[0]
     for word in words[1:]:
         test_line = current + " " + word
-        (test_w, _), _ = cv2.getTextSize(test_line, font, font_scale, thickness)
-        if test_w <= max_width:
+        bbox = draw.textbbox((0, 0), test_line, font=font)
+        w = bbox[2] - bbox[0]
+        if w <= max_width:
             current = test_line
         else:
             lines.append(current)
             current = word
     lines.append(current)
     return lines
-
-
-def get_luminance(rgb):
-    # Calculate luminance (perceived brightness)
-    r, g, b = rgb
-    return 0.299 * r + 0.587 * g + 0.114 * b
-
-
-def contrast_ratio(rgb1, rgb2):
-    # Calculate contrast ratio between two colors (WCAG)
-    l1 = (get_luminance(rgb1) + 0.05) / 255
-    l2 = (get_luminance(rgb2) + 0.05) / 255
-    lighter = max(l1, l2)
-    darker = min(l1, l2)
-    return (lighter + 0.05) / (darker + 0.05)
 
 
 def PutTextOnPolygon(image: Image.Image, polygon: Polygon, text: str) -> Image.Image:
@@ -85,12 +91,11 @@ def PutTextOnPolygon(image: Image.Image, polygon: Polygon, text: str) -> Image.I
     white = (255, 255, 255)
     black = (0, 0, 0)
     min_contrast = 4.5
-    if contrast_ratio(fg_color, bg_color) < min_contrast:
-        fg_color = max([white, black], key=lambda c: contrast_ratio(c, bg_color))
+    if ContrastRatio(fg_color, bg_color) < min_contrast:
+        fg_color = max([white, black], key=lambda c: ContrastRatio(c, bg_color))
 
     # Draw background rectangle on the image
     img_draw = image.copy()
-    from PIL import ImageDraw, ImageFont
 
     draw = ImageDraw.Draw(img_draw)
     draw.rectangle([x, y, x + w, y + h], fill=bg_color)
@@ -101,31 +106,44 @@ def PutTextOnPolygon(image: Image.Image, polygon: Polygon, text: str) -> Image.I
         font = ImageFont.truetype("arial.ttf", font_size)
     except Exception:
         font = ImageFont.load_default()
-        font_size: int = int(font.size) if hasattr(font, "size") else 12
+        font_size: int = int(font.size) if hasattr(font, "size") else 12  # pyright: ignore[reportAttributeAccessIssue]
 
-    def pil_wrap_text(text, max_width, font, draw):
-        words = text.split()
-        if not words:
-            return [""]
-        lines = []
-        current = words[0]
-        for word in words[1:]:
-            test_line = current + " " + word
-            bbox = draw.textbbox((0, 0), test_line, font=font)
-            w = bbox[2] - bbox[0]
-            if w <= max_width:
-                current = test_line
-            else:
-                lines.append(current)
-                current = word
-        lines.append(current)
-        return lines
+    font, lines, line_heights, total_height = ResizeFont(
+        text,
+        w,
+        h,
+        draw,
+        font_size,
+        font,
+    )
 
+    # Draw each line centered horizontally, stacked vertically
+    y_offset = y + (h - total_height) // 2
+    for line, _ in zip(lines, line_heights, strict=True):
+        bbox = draw.textbbox((0, 0), line, font=font)
+        text_w = bbox[2] - bbox[0]
+        text_h = bbox[3] - bbox[1]
+        text_x = x + (w - text_w) // 2
+        text_y = y_offset
+        draw.text((text_x, text_y), line, font=font, fill=fg_color)
+        y_offset += text_h + 5
+
+    return img_draw
+
+
+def ResizeFont(
+    text: str,
+    w: int,
+    h: int,
+    draw: ImageDraw.ImageDraw,
+    font_size: int,
+    font: ImageFont.ImageFont | ImageFont.FreeTypeFont,
+) -> tuple:
     min_font_size = 8
     max_attempts = 40
     attempt = 0
     while True:
-        lines = pil_wrap_text(text, w, font, draw)
+        lines = WrapText(text, w, font, draw)
         line_bboxes = [draw.textbbox((0, 0), line, font=font) for line in lines]
         line_widths = [bbox[2] - bbox[0] for bbox in line_bboxes]
         line_heights = [bbox[3] - bbox[1] for bbox in line_bboxes]
@@ -143,16 +161,4 @@ def PutTextOnPolygon(image: Image.Image, polygon: Polygon, text: str) -> Image.I
         except Exception:
             font = ImageFont.load_default()
         attempt += 1
-
-    # Draw each line centered horizontally, stacked vertically
-    y_offset = y + (h - total_height) // 2
-    for line, _ in zip(lines, line_heights):
-        bbox = draw.textbbox((0, 0), line, font=font)
-        text_w = bbox[2] - bbox[0]
-        text_h = bbox[3] - bbox[1]
-        text_x = x + (w - text_w) // 2
-        text_y = y_offset
-        draw.text((text_x, text_y), line, font=font, fill=fg_color)
-        y_offset += text_h + 5
-
-    return img_draw
+    return font, lines, line_heights, total_height
