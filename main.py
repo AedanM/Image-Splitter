@@ -202,14 +202,26 @@ class MainWindow(QWidget):
                 if self.ImageViewer.image_path and self.ImageViewer.image_path.parent.exists():
                     bounds = self.ImageViewer.saveBounds
                     start = self.ImageViewer.image_path
+                    (self.ImageViewer.image_path.parent / "processed").mkdir(exist_ok=True)
                     for file in self.ImageViewer.image_path.parent.iterdir():
-                        print(file)
                         if file.suffix.lower() in [".png", ".jpg", ".jpeg", ".bmp", ".gif"]:
                             self.ImageViewer.LoadImage(file)
                             self.ImageViewer.saveBounds = bounds
                             self.ImageViewer.SaveSections(self.subfolderCheck.isChecked())
+                            file.rename(file.parent / "processed" / file.name)
                     self.ImageViewer.LoadImage(start)
                     self.ImageViewer.saveBounds = bounds
+                    self.update()
+            case Qt.Key.Key_Y:
+                if self.ImageViewer.image_path and self.ImageViewer.image_path.parent.exists():
+                    start = self.ImageViewer.image_path
+                    for file in self.ImageViewer.image_path.parent.iterdir():
+                        if file.suffix.lower() in [".png", ".jpg", ".jpeg", ".bmp", ".gif"]:
+                            self.ImageViewer.LoadImage(file)
+                            self.ImageViewer.AddGrid(1, 1)
+                            self.Trim()
+                            self.ImageViewer.Crop()
+                    self.ImageViewer.LoadImage(start)
                     self.update()
             case (
                 Qt.Key.Key_0
