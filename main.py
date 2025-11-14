@@ -143,7 +143,7 @@ class MainWindow(QWidget):
     # endregion
     # region InputHandlers
     def keyPressEvent(self, a0: QKeyEvent | None) -> None:  # noqa: C901
-        """Handle all the keypresses."""
+        """Handle all the key presses."""
         if a0 is None:
             return
         match a0.key():
@@ -170,7 +170,7 @@ class MainWindow(QWidget):
                 self.ToggleMode()
             case Qt.Key.Key_P:
                 # open image in ms paint
-                subprocess.Popen(["mspaint", str(self.ImageViewer.image_path)])
+                subprocess.Popen(["mspaint", str(self.ImageViewer.image_path)])  # noqa: S603, S607
             case Qt.Key.Key_S:
                 self.AddGrid()
             case Qt.Key.Key_L:
@@ -362,7 +362,7 @@ class MainWindow(QWidget):
         self.ImageViewer.update()
 
     def Save(self) -> None:
-        """Save the image as sections, defined by imageviewer boxes."""
+        """Save the image as sections, defined by image viewer boxes."""
         newBounds = [] if not self.keepPolygonsCheck.isChecked() else self.ImageViewer.saveBounds
         self.ImageViewer.SaveSections(self.subfolderCheck.isChecked())
         if self.ImageViewer.isFullyCovered:
