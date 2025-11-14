@@ -328,10 +328,21 @@ class MainWindow(QWidget):
         self.ToggleLinePreview(self.previewLinesCheck.isChecked())
 
     def clear(self) -> None:
-        """Clear all save bounds and set focus to main widget"""
+        """Clear all save bounds and set focus to main widget."""
         self.ImageViewer.saveBounds = []
         self.setFocus()
         self.update()
+
+    def update(self) -> None:
+        baseName = "Image-Splitter"
+        if self.ImageViewer.image_path:
+            baseName = self.ImageViewer.image_path.stem
+        if "image_obj" in dir(self.ImageViewer) and self.ImageViewer.image_obj:
+            baseName += (
+                f" ({self.ImageViewer.image_obj.size[0]}x{self.ImageViewer.image_obj.size[1]})"
+            )
+        self.setWindowTitle(baseName)
+        super().update()
 
     def ToggleLinePreview(self, checked: bool) -> None:
         """Toggle the display of extended lines and boundaries."""
@@ -339,7 +350,7 @@ class MainWindow(QWidget):
         self.ImageViewer.update()
 
     def Save(self) -> None:
-        """Save the image as sections, defined by imageviewer boxes"""
+        """Save the image as sections, defined by imageviewer boxes."""
         newBounds = [] if not self.keepPolygonsCheck.isChecked() else self.ImageViewer.saveBounds
         self.ImageViewer.SaveSections(self.subfolderCheck.isChecked())
         if self.ImageViewer.isFullyCovered:
@@ -347,7 +358,7 @@ class MainWindow(QWidget):
         self.ImageViewer.saveBounds = newBounds
 
     def AddGrid(self) -> None:
-        """Add defined grid to image viewer"""
+        """Add defined grid to image viewer."""
         numerics: list[int] = [
             int(x) for x in self.gridEntry.text().split("x", maxsplit=1) if x.isnumeric()
         ]
