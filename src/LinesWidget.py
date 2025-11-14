@@ -5,7 +5,6 @@ from pathlib import Path
 
 import send2trash
 from numpy import median
-from PIL import Image
 from PyQt6.QtCore import QPoint, QRect, QSize, Qt
 from PyQt6.QtGui import QColor, QImage, QMouseEvent, QPainter, QPaintEvent, QPen
 
