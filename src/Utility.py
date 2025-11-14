@@ -7,13 +7,23 @@ from collections import OrderedDict
 from pathlib import Path
 from typing import Any
 
-import winshell
+if os.name == "nt":
+    import winshell
+else:
+    import subprocess as sp
 from PyQt6.QtWidgets import QMessageBox, QWidget
 
 
 def RestoreFromRecycle(parent: Any) -> None:
-    files = sorted(winshell.recycle_bin(), key=lambda x: x.recycle_date())  # pyright: ignore[reportAttributeAccessIssue]
-    file = files[-1].original_filename()  # pyright: ignore[reportAttributeAccessIssue]
+    if os.name == "nt":
+        files = sorted(winshell.recycle_bin(), key=lambda x: x.recycle_date())  # pyright: ignore[reportAttributeAccessIssue]
+    else:
+        files = sorted((Path.home() / ".local/share/Trash/files").glob("*"), key=os.path.getmtime)
+    file = (
+        files[-1].original_filename()  # pyright: ignore[reportAttributeAccessIssue]
+        if os.name == "nt"
+        else parent.ImageViewer.image_path.parent / files[-1].name
+    )
     dlg = QMessageBox(parent)
     dlg.setWindowTitle("File Restored")
     dlg.setText(f"Restore {Path(file).name}?")
@@ -26,8 +36,10 @@ def RestoreFromRecycle(parent: Any) -> None:
             Path(file).rename(
                 Path(file).parent / ((Path(file).stem + " (edited)") + Path(file).suffix),
             )
-        file = files[-1].original_filename()  # pyright: ignore[reportAttributeAccessIssue]
-        winshell.undelete(file)
+        if os.name == "nt":
+            winshell.undelete(file)
+        else:
+            sp.run(["mv", str(files[-1]), file])
         parent.ImageViewer.LoadImage(file)
 
 

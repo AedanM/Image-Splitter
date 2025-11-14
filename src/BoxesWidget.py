@@ -5,9 +5,6 @@ import random
 from pathlib import Path
 
 import pyperclip as clipboard
-import send2trash
-import translate
-from PIL import Image
 from PyQt6.QtCore import QPoint, QRect, QSize, Qt
 from PyQt6.QtGui import QColor, QImage, QMouseEvent, QPainter, QPaintEvent, QPen, QRegion
 
