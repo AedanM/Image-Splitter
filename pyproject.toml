@@ -5,18 +5,19 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
+    "Pillow",
     "PyQt6",
     "Send2Trash",
-    "Pillow",
-    "numpy",
-    "winshell; sys_platform == 'win32'",
-    "pywin32; sys_platform == 'win32'",
-    "pyinstaller",
     "cx_Freeze",
-    "pytesseract",
-    "translate",
+    "numpy",
     "opencv-python",
+    "pyinstaller",
     "pyperclip",
+    "pytesseract",
+    "pywin32; sys_platform == 'win32'",
+    "tendo",
+    "translate",
+    "winshell; sys_platform == 'win32'",
 ]
 
 

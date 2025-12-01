@@ -161,22 +161,4 @@ cython_debug/
 
 .vscode/
 /Temp/
-
-Notes/.obsidian/graph.json
-/Projects/_External/RegexTool/C++/obj
-/Projects/_Scraping/out
-Projects/_Scraping/in/conf.yml
-/Projects/_Scraping/in/conf.yml
-Projects/_Scraping/in/conf.yml
-Projects/_Scraping/in/ehen.txt
-Projects/_Scraping/in/insta.txt
-Projects/_Scraping/in/vid.txt
-Projects/_Scraping/in/x.txt
-Projects/_Scraping/in/x.txt
-Projects/_Scraping/in/x.txt
-/Projects/_Scraping/src/Fur.py
-/Projects/_Games/ExchangeV2/Sample/.vs/Sample/copilot-chat
-/Projects/_Games/ExchangeV2/Sample/.vs/Sample/CopilotIndices
-/Projects/_Games/ExchangeV2/Sample/.vs/Sample/FileContentIndex
-/Projects/_Games/ExchangeV2/Sample/.vs/Sample/v17
-/Projects/_Games/ExchangeV2/Sample/SampleTests/ILLink
+uv.lock
