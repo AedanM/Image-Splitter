@@ -19,6 +19,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 from send2trash import send2trash
+from tendo import singleton
 
 from src.BoxesWidget import BoxWidget
 from src.Components import Polygon
@@ -27,6 +28,9 @@ from src.LinesWidget import LineWidget
 from src.Utility import RestoreFromRecycle
 
 QImageReader.setAllocationLimit(0)
+
+
+INSTANCE = singleton.SingleInstance()
 
 
 class MainWindow(QWidget):
