@@ -170,7 +170,12 @@ class MainWindow(QWidget):
                 self.ToggleMode()
             case Qt.Key.Key_P:
                 # open image in ms paint
-                subprocess.Popen(["mspaint", str(self.ImageViewer.image_path)])
+                subprocess.Popen(
+                    [
+                        "C:\\Adobby\\Adobe Photoshop 2025\\Photoshop.exe",
+                        f'"{self.ImageViewer.image_path}"',
+                    ]
+                )
             case Qt.Key.Key_S:
                 self.AddGrid()
             case Qt.Key.Key_L:
@@ -196,6 +201,8 @@ class MainWindow(QWidget):
                 self.Save()
             case Qt.Key.Key_F2:
                 self.ImageViewer.Rename()
+            case Qt.Key.Key_F5:
+                self.ImageViewer.LoadImage(self.ImageViewer.image_path)
             case Qt.Key.Key_Backspace:
                 self.DeleteLastPolygon()
             case Qt.Key.Key_O:
